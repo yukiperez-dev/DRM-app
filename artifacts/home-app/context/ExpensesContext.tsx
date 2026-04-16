@@ -30,6 +30,18 @@ export interface Expense {
   recurringExpenseId?: string;
 }
 
+export const CATEGORIES = [
+  "Groceries",
+  "Rent & Utilities",
+  "Dining Out",
+  "Transport",
+  "Health",
+  "Entertainment",
+  "Travel",
+  "Shopping",
+  "Home",
+  "Other",
+];
 
 export const COP_TO_EUR = 0.00023;
 export const EUR_TO_COP = 4348;

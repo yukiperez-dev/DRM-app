@@ -16,11 +16,11 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
+  CATEGORIES,
   Currency,
   PaidBy,
   SplitType,
 } from "@/context/ExpensesContext";
-import { useCategories } from "@/context/CategoriesContext";
 import { useRecurringExpenses } from "@/context/RecurringExpensesContext";
 import { useColors } from "@/hooks/useColors";
 
@@ -38,8 +38,7 @@ export default function AddRecurringScreen() {
   const [title, setTitle] = useState(existing?.title ?? "");
   const [amount, setAmount] = useState(existing && existing.amount > 0 ? String(existing.amount) : "");
   const [currency, setCurrency] = useState<Currency>(existing?.currency ?? "COP");
-  const { categories } = useCategories();
-  const [category, setCategory] = useState(() => existing?.category ?? (categories[0] ?? "Groceries"));
+  const [category, setCategory] = useState(existing?.category ?? CATEGORIES[0]);
   const [paidBy, setPaidBy] = useState<PaidBy>(existing?.paidBy ?? "Both");
   const [splitType, setSplitType] = useState<SplitType>(existing?.splitType ?? "equal");
   const [juanfePct, setJuanfePct] = useState(existing?.juanfeSplitPct ?? 50);
@@ -284,7 +283,7 @@ export default function AddRecurringScreen() {
         <View style={styles.field}>
           <Text style={[styles.label, { color: colors.mutedForeground }]}>Category</Text>
           <View style={styles.chipGrid}>
-            {categories.map((cat) => (
+            {CATEGORIES.map((cat) => (
               <Pressable
                 key={cat}
                 onPress={() => setCategory(cat)}

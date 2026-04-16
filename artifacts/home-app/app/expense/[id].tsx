@@ -21,13 +21,13 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
+  CATEGORIES,
   Currency,
   PaidBy,
   SplitType,
   formatDateEU,
   useExpenses,
 } from "@/context/ExpensesContext";
-import { useCategories } from "@/context/CategoriesContext";
 import DatePickerField from "@/components/DatePickerField";
 import { useColors } from "@/hooks/useColors";
 
@@ -38,7 +38,6 @@ export default function ExpenseDetailScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { expenses, updateExpense, togglePaid, deleteExpense } = useExpenses();
-  const { categories } = useCategories();
 
   const expense = expenses.find((e) => e.id === id);
 
@@ -53,7 +52,7 @@ export default function ExpenseDetailScreen() {
     expense?.yukitaPaidAmount != null ? String(expense.yukitaPaidAmount) : ""
   );
   const [currency, setCurrency] = useState<Currency>(expense?.currency ?? "COP");
-  const [category, setCategory] = useState(expense?.category ?? (categories[0] ?? "Groceries"));
+  const [category, setCategory] = useState(expense?.category ?? CATEGORIES[0]);
   const [paidBy, setPaidBy] = useState<PaidBy>(expense?.paidBy ?? "Juanfe");
   const [splitType, setSplitType] = useState<SplitType>(expense?.splitType ?? "equal");
   const initPct = expense?.juanfeSplitPct ?? 50;
@@ -480,7 +479,7 @@ export default function ExpenseDetailScreen() {
           <View style={styles.field}>
             <Text style={[styles.label, { color: colors.mutedForeground }]}>Category</Text>
             <View style={styles.chipGrid}>
-              {categories.map((cat) => (
+              {CATEGORIES.map((cat) => (
                 <Pressable key={cat} onPress={() => setCategory(cat)}
                   style={[styles.chip, {
                     backgroundColor: category === cat ? colors.primary : colors.secondary,

@@ -19,12 +19,12 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
+  CATEGORIES,
   Currency,
   PaidBy,
   SplitType,
   useExpenses,
 } from "@/context/ExpensesContext";
-import { useCategories } from "@/context/CategoriesContext";
 import DatePickerField from "@/components/DatePickerField";
 import { useColors } from "@/hooks/useColors";
 
@@ -34,14 +34,13 @@ export default function AddExpenseScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { addExpense } = useExpenses();
-  const { categories } = useCategories();
 
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [juanfeAmount, setJuanfeAmount] = useState("");
   const [yukitaAmount, setYukitaAmount] = useState("");
   const [currency, setCurrency] = useState<Currency>("COP");
-  const [category, setCategory] = useState(() => categories[0] ?? "Groceries");
+  const [category, setCategory] = useState(CATEGORIES[0]);
   const [paidBy, setPaidBy] = useState<PaidBy>("Juanfe");
   const [splitType, setSplitType] = useState<SplitType>("equal");
   // juanfe's share %, yukita = 100 - juanfePct
@@ -405,7 +404,7 @@ export default function AddExpenseScreen() {
         <View style={styles.field}>
           <Text style={[styles.label, { color: colors.mutedForeground }]}>Category</Text>
           <View style={styles.chipGrid}>
-            {categories.map((cat) => (
+            {CATEGORIES.map((cat) => (
               <Pressable
                 key={cat}
                 onPress={() => setCategory(cat)}

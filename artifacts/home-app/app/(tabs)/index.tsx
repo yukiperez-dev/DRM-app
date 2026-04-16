@@ -19,8 +19,7 @@ import { RecurringSection } from "@/components/RecurringSection";
 import { SummarySection } from "@/components/SummarySection";
 import { BudgetsSection } from "@/components/BudgetsSection";
 import { CurrencyToggle } from "@/components/CurrencyToggle";
-import { Currency, useExpenses } from "@/context/ExpensesContext";
-import { useCategories } from "@/context/CategoriesContext";
+import { CATEGORIES, Currency, useExpenses } from "@/context/ExpensesContext";
 import { useColors } from "@/hooks/useColors";
 
 const ALL = "All";
@@ -32,12 +31,11 @@ export default function ExpensesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { expenses, deleteExpense, loading } = useExpenses();
-  const { categories: rawCategories } = useCategories();
   const [selectedCategory, setSelectedCategory] = useState<string>(ALL);
   const [activeTab, setActiveTab] = useState<Tab>("Expenses");
   const [currency, setCurrency] = useState<Currency>("COP");
 
-  const filterChips = [ALL, PENDING, ...rawCategories];
+  const categories = [ALL, PENDING, ...CATEGORIES];
 
   const pendingCount = useMemo(
     () => expenses.filter((e) => e.isPaid === false).length,
@@ -126,14 +124,13 @@ export default function ExpensesScreen() {
       {/* Content */}
       {activeTab === "Expenses" && (
         <>
-          <View style={styles.filterRow}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            style={[styles.filterScroll, { flex: 1 }]}
+            style={styles.filterScroll}
             contentContainerStyle={styles.filterContent}
           >
-            {filterChips.map((cat) => {
+            {categories.map((cat) => {
               const isSelected = selectedCategory === cat;
               const isPendingChip = cat === PENDING;
               return (
@@ -194,14 +191,6 @@ export default function ExpensesScreen() {
               );
             })}
           </ScrollView>
-          <TouchableOpacity
-            onPress={() => router.push("/manage-categories")}
-            style={[styles.manageBtn, { borderLeftColor: colors.border, backgroundColor: colors.background }]}
-            activeOpacity={0.7}
-          >
-            <Feather name="settings" size={16} color={colors.mutedForeground} />
-          </TouchableOpacity>
-          </View>
 
           <FlatList
             data={filtered}
@@ -289,15 +278,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Inter_600SemiBold",
   },
-  filterRow: { flexDirection: "row", alignItems: "center" },
   filterScroll: { maxHeight: 48, flexGrow: 0 },
-  manageBtn: {
-    width: 40,
-    height: 48,
-    alignItems: "center",
-    justifyContent: "center",
-    borderLeftWidth: StyleSheet.hairlineWidth,
-  },
   filterContent: {
     paddingHorizontal: 16,
     paddingVertical: 10,

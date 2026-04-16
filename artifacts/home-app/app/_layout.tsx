@@ -17,7 +17,6 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ExpensesProvider } from "@/context/ExpensesContext";
 import { RecurringExpensesProvider } from "@/context/RecurringExpensesContext";
 import { BudgetsProvider } from "@/context/BudgetsContext";
-import { CategoriesProvider } from "@/context/CategoriesContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -37,10 +36,6 @@ function RootLayoutNav() {
       />
       <Stack.Screen
         name="add-recurring"
-        options={{ presentation: "modal", headerShown: false }}
-      />
-      <Stack.Screen
-        name="manage-categories"
         options={{ presentation: "modal", headerShown: false }}
       />
     </Stack>
@@ -67,7 +62,6 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
-          <CategoriesProvider>
           <ExpensesProvider>
             <BudgetsProvider>
               <RecurringExpensesProvider>
@@ -79,7 +73,6 @@ export default function RootLayout() {
               </RecurringExpensesProvider>
             </BudgetsProvider>
           </ExpensesProvider>
-          </CategoriesProvider>
         </QueryClientProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
