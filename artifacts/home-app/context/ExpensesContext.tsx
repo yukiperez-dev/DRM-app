@@ -212,8 +212,8 @@ export function ExpensesProvider({ children }: { children: React.ReactNode }) {
         netAmount < 0.01
           ? null
           : juanfePaid > yukitaPaid
-          ? "Yukita"
-          : "Juanfe";
+          ? "Juanfe"   // Juanfe owes more to Yukita → Juanfe is net ower
+          : "Yukita";  // Yukita owes more to Juanfe → Yukita is net ower
 
       return {
         juanfeOwes: juanfePaid,
