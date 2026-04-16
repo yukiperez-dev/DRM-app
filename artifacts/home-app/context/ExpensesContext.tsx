@@ -89,14 +89,14 @@ export function formatDateEU(dateStr: string): string {
   const day = String(d.getUTCDate()).padStart(2, "0");
   const month = String(d.getUTCMonth() + 1).padStart(2, "0");
   const year = d.getUTCFullYear();
-  return `${day}/${month}/${year}`;
+  return `${day}-${month}-${year}`;
 }
 
 export function formatDateEUShort(dateStr: string): string {
   const d = new Date(dateStr);
   const day = String(d.getUTCDate()).padStart(2, "0");
   const month = String(d.getUTCMonth() + 1).padStart(2, "0");
-  return `${day}/${month}`;
+  return `${day}-${month}`;
 }
 
 export function getSplitLabel(expense: Expense): string | null {

@@ -25,6 +25,7 @@ import {
   SplitType,
   useExpenses,
 } from "@/context/ExpensesContext";
+import DatePickerField from "@/components/DatePickerField";
 import { useColors } from "@/hooks/useColors";
 
 const SPLIT_PRESETS = [25, 30, 40, 50, 60, 70, 75];
@@ -272,16 +273,7 @@ export default function AddExpenseScreen() {
 
         <View style={styles.field}>
           <Text style={[styles.label, { color: colors.mutedForeground }]}>Date</Text>
-          <TextInput
-            style={[
-              styles.input,
-              { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground },
-            ]}
-            value={date}
-            onChangeText={setDate}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor={colors.mutedForeground}
-          />
+          <DatePickerField value={date} onChange={setDate} />
         </View>
 
         {/* Paid by */}
