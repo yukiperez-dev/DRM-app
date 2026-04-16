@@ -2,7 +2,6 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
-
 import {
   FlatList,
   Platform,
@@ -16,17 +15,24 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ExpenseCard } from "@/components/ExpenseCard";
-import { CATEGORIES, useExpenses } from "@/context/ExpensesContext";
+import { RecurringSection } from "@/components/RecurringSection";
+import { SummarySection } from "@/components/SummarySection";
+import { CurrencyToggle } from "@/components/CurrencyToggle";
+import { CATEGORIES, Currency, useExpenses } from "@/context/ExpensesContext";
 import { useColors } from "@/hooks/useColors";
 
 const ALL = "All";
 const PENDING = "Pending";
+type Tab = "Expenses" | "Recurring" | "Summary";
+const TABS: Tab[] = ["Expenses", "Recurring", "Summary"];
 
 export default function ExpensesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { expenses, deleteExpense, loading } = useExpenses();
   const [selectedCategory, setSelectedCategory] = useState<string>(ALL);
+  const [activeTab, setActiveTab] = useState<Tab>("Expenses");
+  const [currency, setCurrency] = useState<Currency>("COP");
 
   const categories = [ALL, PENDING, ...CATEGORIES];
 
@@ -41,21 +47,35 @@ export default function ExpensesScreen() {
     return expenses.filter((e) => e.category === selectedCategory);
   }, [expenses, selectedCategory]);
 
-  const totalCount = expenses.length;
-  const filteredCount = filtered.length;
-
   const handleAdd = () => {
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    router.push("/add-expense");
+    if (activeTab === "Recurring") {
+      router.push("/add-recurring");
+    } else {
+      router.push("/add-expense");
+    }
   };
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
+  const bottomPadding = Platform.OS === "web" ? 100 : insets.bottom + 100;
+
+  const showAddBtn = activeTab === "Expenses" || activeTab === "Recurring";
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop: topPadding + 16, backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+      {/* Header */}
+      <View
+        style={[
+          styles.header,
+          {
+            paddingTop: topPadding + 16,
+            backgroundColor: colors.background,
+            borderBottomColor: colors.border,
+          },
+        ]}
+      >
         <View>
           <Text style={[styles.greeting, { color: colors.mutedForeground }]}>
             Juanfe & Yukita
@@ -64,115 +84,148 @@ export default function ExpensesScreen() {
             Expenses
           </Text>
         </View>
-        <TouchableOpacity
-          style={[styles.addBtn, { backgroundColor: colors.primary }]}
-          onPress={handleAdd}
-          activeOpacity={0.85}
-        >
-          <Feather name="plus" size={22} color="#fff" />
-        </TouchableOpacity>
+        {activeTab === "Summary" ? (
+          <CurrencyToggle value={currency} onChange={setCurrency} />
+        ) : (
+          <TouchableOpacity
+            style={[styles.addBtn, { backgroundColor: colors.primary }]}
+            onPress={handleAdd}
+            activeOpacity={0.85}
+          >
+            <Feather name="plus" size={22} color="#fff" />
+          </TouchableOpacity>
+        )}
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filterScroll}
-        contentContainerStyle={styles.filterContent}
-      >
-        {categories.map((cat) => {
-          const isSelected = selectedCategory === cat;
-          const isPendingChip = cat === PENDING;
-          const chipColor = isPendingChip && !isSelected ? colors.primary : colors.primary;
+      {/* Segmented control */}
+      <View style={[styles.segmentRow, { borderBottomColor: colors.border }]}>
+        {TABS.map((tab) => {
+          const isActive = activeTab === tab;
           return (
             <Pressable
-              key={cat}
-              onPress={() => setSelectedCategory(cat)}
-              style={[
-                styles.filterChip,
-                {
-                  backgroundColor: isSelected
-                    ? colors.primary
-                    : isPendingChip
-                    ? colors.primary + "12"
-                    : colors.secondary,
-                  borderColor: isSelected
-                    ? colors.primary
-                    : isPendingChip
-                    ? colors.primary + "60"
-                    : colors.border,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 5,
-                },
-              ]}
+              key={tab}
+              onPress={() => setActiveTab(tab)}
+              style={[styles.segmentBtn, isActive && { borderBottomColor: colors.primary, borderBottomWidth: 2 }]}
             >
-              {isPendingChip && (
-                <Feather
-                  name="clock"
-                  size={11}
-                  color={isSelected ? colors.primaryForeground : colors.primary}
-                />
-              )}
               <Text
                 style={[
-                  styles.filterChipText,
-                  {
-                    color: isSelected
-                      ? colors.primaryForeground
-                      : isPendingChip
-                      ? colors.primary
-                      : colors.mutedForeground,
-                  },
+                  styles.segmentText,
+                  { color: isActive ? colors.primary : colors.mutedForeground },
                 ]}
               >
-                {cat}
+                {tab}
               </Text>
-              {isPendingChip && pendingCount > 0 && (
-                <View
-                  style={[
-                    styles.pendingBadge,
-                    { backgroundColor: isSelected ? "rgba(255,255,255,0.3)" : colors.primary },
-                  ]}
-                >
-                  <Text style={styles.pendingBadgeText}>{pendingCount}</Text>
-                </View>
-              )}
             </Pressable>
           );
         })}
-      </ScrollView>
+      </View>
 
-      <FlatList
-        data={filtered}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <ExpenseCard expense={item} onDelete={deleteExpense} />
-        )}
-        contentContainerStyle={[
-          styles.list,
-          {
-            paddingBottom:
-              Platform.OS === "web" ? 100 : insets.bottom + 100,
-          },
-        ]}
-        showsVerticalScrollIndicator={false}
-        scrollEnabled={filtered.length > 0}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Feather
-              name="inbox"
-              size={48}
-              color={colors.mutedForeground}
-            />
-            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-              No expenses yet
-            </Text>
-            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-              Tap the + button to add your first expense
-            </Text>
-          </View>
-        }
-      />
+      {/* Content */}
+      {activeTab === "Expenses" && (
+        <>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.filterScroll}
+            contentContainerStyle={styles.filterContent}
+          >
+            {categories.map((cat) => {
+              const isSelected = selectedCategory === cat;
+              const isPendingChip = cat === PENDING;
+              return (
+                <Pressable
+                  key={cat}
+                  onPress={() => setSelectedCategory(cat)}
+                  style={[
+                    styles.filterChip,
+                    {
+                      backgroundColor: isSelected
+                        ? colors.primary
+                        : isPendingChip
+                        ? colors.primary + "12"
+                        : colors.secondary,
+                      borderColor: isSelected
+                        ? colors.primary
+                        : isPendingChip
+                        ? colors.primary + "60"
+                        : colors.border,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 5,
+                    },
+                  ]}
+                >
+                  {isPendingChip && (
+                    <Feather
+                      name="clock"
+                      size={11}
+                      color={isSelected ? colors.primaryForeground : colors.primary}
+                    />
+                  )}
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      {
+                        color: isSelected
+                          ? colors.primaryForeground
+                          : isPendingChip
+                          ? colors.primary
+                          : colors.mutedForeground,
+                      },
+                    ]}
+                  >
+                    {cat}
+                  </Text>
+                  {isPendingChip && pendingCount > 0 && (
+                    <View
+                      style={[
+                        styles.pendingBadge,
+                        { backgroundColor: isSelected ? "rgba(255,255,255,0.3)" : colors.primary },
+                      ]}
+                    >
+                      <Text style={styles.pendingBadgeText}>{pendingCount}</Text>
+                    </View>
+                  )}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          <FlatList
+            data={filtered}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <ExpenseCard expense={item} onDelete={deleteExpense} />
+            )}
+            contentContainerStyle={[styles.list, { paddingBottom: bottomPadding }]}
+            showsVerticalScrollIndicator={false}
+            scrollEnabled={filtered.length > 0}
+            ListEmptyComponent={
+              <View style={styles.empty}>
+                <Feather name="inbox" size={48} color={colors.mutedForeground} />
+                <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+                  No expenses yet
+                </Text>
+                <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+                  Tap the + button to add your first expense
+                </Text>
+              </View>
+            }
+          />
+        </>
+      )}
+
+      {activeTab === "Recurring" && (
+        <RecurringSection bottomPadding={bottomPadding} />
+      )}
+
+      {activeTab === "Summary" && (
+        <SummarySection
+          bottomPadding={bottomPadding}
+          currency={currency}
+          setCurrency={setCurrency}
+        />
+      )}
     </View>
   );
 }
@@ -207,6 +260,22 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 5,
+  },
+  segmentRow: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    paddingHorizontal: 4,
+  },
+  segmentBtn: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: "transparent",
+  },
+  segmentText: {
+    fontSize: 14,
+    fontFamily: "Inter_600SemiBold",
   },
   filterScroll: { maxHeight: 48, flexGrow: 0 },
   filterContent: {
