@@ -59,6 +59,7 @@ export default function ExpenseDetailScreen() {
   const [yukitaPctText, setYukitaPctText] = useState(String(100 - initPct));
   const [note, setNote] = useState(expense?.note ?? "");
   const [isPaid, setIsPaid] = useState(expense?.isPaid !== false);
+  const [date, setDate] = useState(expense?.date.slice(0, 10) ?? "");
   const [billImageBase64, setBillImageBase64] = useState<string | undefined>(expense?.billImageBase64);
   const [billModalVisible, setBillModalVisible] = useState(false);
   const [error, setError] = useState("");
@@ -157,7 +158,7 @@ export default function ExpenseDetailScreen() {
         paidBy: "Both", juanfePaidAmount: jf, yukitaPaidAmount: yf,
         splitType, juanfeSplitPct: isCustomSplit ? juanfePct : undefined,
         isPaid,
-        date: expense.date, note: note.trim() || undefined, billImageBase64,
+        date: new Date(`${date || expense.date.slice(0, 10)}T12:00:00.000Z`).toISOString(), note: note.trim() || undefined, billImageBase64,
       });
     } else {
       const parsed = parseFloat(amount.replace(/,/g, ""));
@@ -167,7 +168,7 @@ export default function ExpenseDetailScreen() {
         title: title.trim(), amount: parsed, currency, category, paidBy,
         splitType, juanfeSplitPct: isCustomSplit ? juanfePct : undefined,
         isPaid,
-        date: expense.date, note: note.trim() || undefined, billImageBase64,
+        date: new Date(`${date || expense.date.slice(0, 10)}T12:00:00.000Z`).toISOString(), note: note.trim() || undefined, billImageBase64,
       });
     }
     setIsEditing(false);
@@ -418,6 +419,20 @@ export default function ExpenseDetailScreen() {
                 );
               })}
             </View>
+          </View>
+
+          <View style={styles.field}>
+            <Text style={[styles.label, { color: colors.mutedForeground }]}>Date</Text>
+            <TextInput
+              style={[
+                styles.input,
+                { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground },
+              ]}
+              value={date}
+              onChangeText={setDate}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor={colors.mutedForeground}
+            />
           </View>
 
           {/* Amount */}

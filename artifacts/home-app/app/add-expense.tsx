@@ -48,6 +48,7 @@ export default function AddExpenseScreen() {
   const [yukitaPctText, setYukitaPctText] = useState("50");
   const [note, setNote] = useState("");
   const [isPaid, setIsPaid] = useState(true);
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [billImageBase64, setBillImageBase64] = useState<string | undefined>(undefined);
   const [error, setError] = useState("");
 
@@ -174,7 +175,7 @@ export default function AddExpenseScreen() {
         splitType,
         juanfeSplitPct: isCustomSplit ? juanfePct : undefined,
         isPaid,
-        date: new Date().toISOString(),
+        date: new Date(`${date}T12:00:00.000Z`).toISOString(),
         note: note.trim() || undefined,
         billImageBase64,
       });
@@ -196,7 +197,7 @@ export default function AddExpenseScreen() {
         splitType,
         juanfeSplitPct: isCustomSplit ? juanfePct : undefined,
         isPaid,
-        date: new Date().toISOString(),
+        date: new Date(`${date}T12:00:00.000Z`).toISOString(),
         note: note.trim() || undefined,
         billImageBase64,
       });
@@ -266,6 +267,20 @@ export default function AddExpenseScreen() {
             placeholder="e.g. Mercadona groceries"
             placeholderTextColor={colors.mutedForeground}
             returnKeyType="next"
+          />
+        </View>
+
+        <View style={styles.field}>
+          <Text style={[styles.label, { color: colors.mutedForeground }]}>Date</Text>
+          <TextInput
+            style={[
+              styles.input,
+              { backgroundColor: colors.card, borderColor: colors.border, color: colors.foreground },
+            ]}
+            value={date}
+            onChangeText={setDate}
+            placeholder="YYYY-MM-DD"
+            placeholderTextColor={colors.mutedForeground}
           />
         </View>
 
