@@ -51,6 +51,7 @@ export default function AddExpenseScreen() {
   const [isPaid, setIsPaid] = useState(true);
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [billImageBase64, setBillImageBase64] = useState<string | undefined>(undefined);
+  const [otherCategoryName, setOtherCategoryName] = useState("");
   const [error, setError] = useState("");
 
   const isBoth = paidBy === "Both";
@@ -137,6 +138,11 @@ export default function AddExpenseScreen() {
     setYukitaPctText(String(100 - preset));
   };
 
+  const effectiveCategory =
+    category === "Other" && otherCategoryName.trim()
+      ? otherCategoryName.trim()
+      : category;
+
   const handleSave = () => {
     if (!title.trim()) {
       setError("Please enter a title");
@@ -169,7 +175,7 @@ export default function AddExpenseScreen() {
         title: title.trim(),
         amount: total,
         currency,
-        category,
+        category: effectiveCategory,
         paidBy: "Both",
         juanfePaidAmount: juanfeFinal,
         yukitaPaidAmount: yukitaFinal,
@@ -193,7 +199,7 @@ export default function AddExpenseScreen() {
         title: title.trim(),
         amount: parsedAmount,
         currency,
-        category,
+        category: effectiveCategory,
         paidBy,
         splitType,
         juanfeSplitPct: isCustomSplit ? juanfePct : undefined,
@@ -427,6 +433,24 @@ export default function AddExpenseScreen() {
               </Pressable>
             ))}
           </View>
+          {category === "Other" && (
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  color: colors.foreground,
+                  backgroundColor: colors.secondary,
+                  borderColor: colors.border,
+                  marginTop: 8,
+                },
+              ]}
+              value={otherCategoryName}
+              onChangeText={setOtherCategoryName}
+              placeholder="Category name"
+              placeholderTextColor={colors.mutedForeground}
+              autoFocus
+            />
+          )}
         </View>
 
         {/* Split */}
