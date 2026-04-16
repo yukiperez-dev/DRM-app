@@ -35,7 +35,7 @@ export default function ExpenseDetailScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { expenses, updateExpense, deleteExpense } = useExpenses();
+  const { expenses, updateExpense, togglePaid, deleteExpense } = useExpenses();
 
   const expense = expenses.find((e) => e.id === id);
 
@@ -58,6 +58,7 @@ export default function ExpenseDetailScreen() {
   const [juanfePctText, setJuanfePctText] = useState(String(initPct));
   const [yukitaPctText, setYukitaPctText] = useState(String(100 - initPct));
   const [note, setNote] = useState(expense?.note ?? "");
+  const [isPaid, setIsPaid] = useState(expense?.isPaid !== false);
   const [billImageBase64, setBillImageBase64] = useState<string | undefined>(expense?.billImageBase64);
   const [billModalVisible, setBillModalVisible] = useState(false);
   const [error, setError] = useState("");
@@ -155,6 +156,7 @@ export default function ExpenseDetailScreen() {
         title: title.trim(), amount: jf + yf, currency, category,
         paidBy: "Both", juanfePaidAmount: jf, yukitaPaidAmount: yf,
         splitType, juanfeSplitPct: isCustomSplit ? juanfePct : undefined,
+        isPaid,
         date: expense.date, note: note.trim() || undefined, billImageBase64,
       });
     } else {
@@ -164,6 +166,7 @@ export default function ExpenseDetailScreen() {
       updateExpense(id!, {
         title: title.trim(), amount: parsed, currency, category, paidBy,
         splitType, juanfeSplitPct: isCustomSplit ? juanfePct : undefined,
+        isPaid,
         date: expense.date, note: note.trim() || undefined, billImageBase64,
       });
     }
@@ -255,6 +258,31 @@ export default function ExpenseDetailScreen() {
               </View>
             </View>
           </View>
+
+          {/* Status quick-toggle */}
+          <TouchableOpacity
+            onPress={() => togglePaid(id!)}
+            activeOpacity={0.75}
+            style={[
+              styles.statusBar,
+              {
+                backgroundColor: expense.isPaid !== false ? "#16a34a18" : colors.primary + "12",
+                borderColor: expense.isPaid !== false ? "#16a34a60" : colors.primary + "60",
+              },
+            ]}
+          >
+            <Feather
+              name={expense.isPaid !== false ? "check-circle" : "clock"}
+              size={16}
+              color={expense.isPaid !== false ? "#16a34a" : colors.primary}
+            />
+            <Text style={[styles.statusBarText, { color: expense.isPaid !== false ? "#16a34a" : colors.primary }]}>
+              {expense.isPaid !== false ? "Paid" : "Pending — tap to mark as paid"}
+            </Text>
+            {expense.isPaid !== false && (
+              <Text style={[styles.statusBarHint, { color: "#16a34a99" }]}>Tap to mark pending</Text>
+            )}
+          </TouchableOpacity>
 
           {/* Detail rows */}
           <View style={[styles.detailCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -566,6 +594,33 @@ export default function ExpenseDetailScreen() {
             )}
           </View>
 
+          {/* Status */}
+          <View style={styles.field}>
+            <Text style={[styles.label, { color: colors.mutedForeground }]}>Status</Text>
+            <View style={styles.twoRow}>
+              <Pressable
+                onPress={() => setIsPaid(true)}
+                style={[styles.twoBtn, {
+                  backgroundColor: isPaid ? "#16a34a18" : colors.secondary,
+                  borderColor: isPaid ? "#16a34a" : colors.border,
+                }]}
+              >
+                <Feather name="check-circle" size={15} color={isPaid ? "#16a34a" : colors.mutedForeground} />
+                <Text style={[styles.twoBtnText, { color: isPaid ? "#16a34a" : colors.mutedForeground }]}>Paid</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setIsPaid(false)}
+                style={[styles.twoBtn, {
+                  backgroundColor: !isPaid ? colors.primary + "18" : colors.secondary,
+                  borderColor: !isPaid ? colors.primary : colors.border,
+                }]}
+              >
+                <Feather name="clock" size={15} color={!isPaid ? colors.primary : colors.mutedForeground} />
+                <Text style={[styles.twoBtnText, { color: !isPaid ? colors.primary : colors.mutedForeground }]}>Pending</Text>
+              </Pressable>
+            </View>
+          </View>
+
           {/* Note */}
           <View style={styles.field}>
             <Text style={[styles.label, { color: colors.mutedForeground }]}>Note (optional)</Text>
@@ -706,6 +761,23 @@ const styles = StyleSheet.create({
   billRemoveBtn: { position: "absolute", top: 8, right: 8, width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   billChangeBtn: { position: "absolute", bottom: 8, right: 8, flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, borderWidth: 1 },
   billChangeBtnText: { fontSize: 12, fontFamily: "Inter_500Medium" },
+  // Status
+  statusBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  statusBarText: { flex: 1, fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  statusBarHint: { fontSize: 12, fontFamily: "Inter_400Regular" },
+  twoRow: { flexDirection: "row", gap: 8 },
+  twoBtn: {
+    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center",
+    gap: 7, paddingVertical: 13, borderRadius: 12, borderWidth: 1,
+  },
+  twoBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   saveButton: { paddingVertical: 16, borderRadius: 14, alignItems: "center" },
   saveButtonText: { fontSize: 16, fontFamily: "Inter_700Bold" },
   modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.85)", alignItems: "center", justifyContent: "center", padding: 20 },

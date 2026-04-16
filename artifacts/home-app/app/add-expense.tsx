@@ -47,6 +47,7 @@ export default function AddExpenseScreen() {
   const [juanfePctText, setJuanfePctText] = useState("50");
   const [yukitaPctText, setYukitaPctText] = useState("50");
   const [note, setNote] = useState("");
+  const [isPaid, setIsPaid] = useState(true);
   const [billImageBase64, setBillImageBase64] = useState<string | undefined>(undefined);
   const [error, setError] = useState("");
 
@@ -172,6 +173,7 @@ export default function AddExpenseScreen() {
         yukitaPaidAmount: yukitaFinal,
         splitType,
         juanfeSplitPct: isCustomSplit ? juanfePct : undefined,
+        isPaid,
         date: new Date().toISOString(),
         note: note.trim() || undefined,
         billImageBase64,
@@ -193,6 +195,7 @@ export default function AddExpenseScreen() {
         paidBy,
         splitType,
         juanfeSplitPct: isCustomSplit ? juanfePct : undefined,
+        isPaid,
         date: new Date().toISOString(),
         note: note.trim() || undefined,
         billImageBase64,
@@ -599,6 +602,42 @@ export default function AddExpenseScreen() {
           )}
         </View>
 
+        {/* Status */}
+        <View style={styles.field}>
+          <Text style={[styles.label, { color: colors.mutedForeground }]}>Status</Text>
+          <View style={styles.twoRow}>
+            <Pressable
+              onPress={() => setIsPaid(true)}
+              style={[styles.twoBtn, {
+                backgroundColor: isPaid ? "#16a34a18" : colors.secondary,
+                borderColor: isPaid ? "#16a34a" : colors.border,
+              }]}
+            >
+              <Feather name="check-circle" size={15} color={isPaid ? "#16a34a" : colors.mutedForeground} />
+              <Text style={[styles.twoBtnText, { color: isPaid ? "#16a34a" : colors.mutedForeground }]}>
+                Paid
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setIsPaid(false)}
+              style={[styles.twoBtn, {
+                backgroundColor: !isPaid ? colors.primary + "18" : colors.secondary,
+                borderColor: !isPaid ? colors.primary : colors.border,
+              }]}
+            >
+              <Feather name="clock" size={15} color={!isPaid ? colors.primary : colors.mutedForeground} />
+              <Text style={[styles.twoBtnText, { color: !isPaid ? colors.primary : colors.mutedForeground }]}>
+                Pending
+              </Text>
+            </Pressable>
+          </View>
+          {!isPaid && (
+            <Text style={[styles.statusHint, { color: colors.mutedForeground }]}>
+              Pending expenses are tracked but won't affect the balance.
+            </Text>
+          )}
+        </View>
+
         {/* Note */}
         <View style={styles.field}>
           <Text style={[styles.label, { color: colors.mutedForeground }]}>
@@ -761,6 +800,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   presetChipText: { fontSize: 12, fontFamily: "Inter_500Medium" },
+  // Status toggle
+  twoRow: { flexDirection: "row", gap: 8 },
+  twoBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    paddingVertical: 13,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  twoBtnText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
+  statusHint: { fontSize: 12, fontFamily: "Inter_400Regular", fontStyle: "italic" },
   // Bill photo
   billPicker: {
     flexDirection: "row",

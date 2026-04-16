@@ -68,6 +68,7 @@ export function ExpenseCard({ expense, onDelete }: Props) {
   const isBoth = expense.paidBy === "Both";
   const splitLabel = getSplitLabel(expense);
   const hasBill = Boolean(expense.billImageBase64);
+  const isPending = expense.isPaid === false;
 
   const date = new Date(expense.date);
   const dateStr = date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
@@ -78,8 +79,13 @@ export function ExpenseCard({ expense, onDelete }: Props) {
         onPress={handleCardPress}
         style={({ pressed }) => [
           styles.card,
-          { backgroundColor: colors.card, borderColor: colors.border },
-          pressed && { opacity: 0.85 },
+          {
+            backgroundColor: isPending ? colors.secondary : colors.card,
+            borderColor: isPending ? colors.border : colors.border,
+            borderStyle: isPending ? "dashed" : "solid",
+            opacity: isPending ? 0.85 : 1,
+          },
+          pressed && { opacity: 0.7 },
         ]}
       >
         <View style={[styles.iconBox, { backgroundColor: colors.secondary }]}>
@@ -131,6 +137,12 @@ export function ExpenseCard({ expense, onDelete }: Props) {
             )}
             <Text style={[styles.date, { color: colors.mutedForeground }]}>{" · "}{dateStr}</Text>
           </View>
+          {isPending && (
+            <View style={styles.pendingRow}>
+              <Feather name="clock" size={11} color={colors.primary} />
+              <Text style={[styles.pendingText, { color: colors.primary }]}>Pending</Text>
+            </View>
+          )}
           {splitLabel ? (
             <Text style={[styles.splitNote, { color: colors.mutedForeground }]}>{splitLabel}</Text>
           ) : null}
@@ -217,6 +229,8 @@ const styles = StyleSheet.create({
     alignItems: "center", justifyContent: "center",
   },
   billThumb: { width: "100%", height: 120, borderRadius: 10, marginTop: 6, borderWidth: 1 },
+  pendingRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
+  pendingText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
   chevronWrap: { justifyContent: "center", paddingTop: 4 },
   modalBackdrop: {
     flex: 1, backgroundColor: "rgba(0,0,0,0.85)",

@@ -23,6 +23,7 @@ export interface Expense {
   yukitaPaidAmount?: number;
   splitType: SplitType;
   juanfeSplitPct?: number; // 0–100, used when splitType === "custom"
+  isPaid: boolean; // false = planned/pending, true = already paid
   date: string;
   note?: string;
   billImageBase64?: string; // data URI: "data:image/jpeg;base64,..."
@@ -103,6 +104,7 @@ interface ExpensesContextType {
   expenses: Expense[];
   addExpense: (expense: Omit<Expense, "id">) => void;
   updateExpense: (id: string, updates: Omit<Expense, "id">) => void;
+  togglePaid: (id: string) => void;
   deleteExpense: (id: string) => void;
   getBalance: (currency: Currency) => Balance;
   loading: boolean;
@@ -150,6 +152,15 @@ export function ExpensesProvider({ children }: { children: React.ReactNode }) {
     [expenses, saveExpenses]
   );
 
+  const togglePaid = useCallback(
+    (id: string) => {
+      saveExpenses(
+        expenses.map((e) => (e.id === id ? { ...e, isPaid: !e.isPaid } : e))
+      );
+    },
+    [expenses, saveExpenses]
+  );
+
   const deleteExpense = useCallback(
     (id: string) => {
       saveExpenses(expenses.filter((e) => e.id !== id));
@@ -165,6 +176,7 @@ export function ExpensesProvider({ children }: { children: React.ReactNode }) {
       let yukitaPaid = 0;
 
       for (const expense of expenses) {
+        if (expense.isPaid === false) continue; // pending expenses don't affect balance
         if (expense.splitType === "full") continue;
 
         // Determine each person's share percentage (0–1)
@@ -228,7 +240,7 @@ export function ExpensesProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ExpensesContext.Provider
-      value={{ expenses, addExpense, updateExpense, deleteExpense, getBalance, loading }}
+      value={{ expenses, addExpense, updateExpense, togglePaid, deleteExpense, getBalance, loading }}
     >
       {children}
     </ExpensesContext.Provider>

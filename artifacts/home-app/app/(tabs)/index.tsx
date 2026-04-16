@@ -2,6 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
+
 import {
   FlatList,
   Platform,
@@ -19,6 +20,7 @@ import { CATEGORIES, useExpenses } from "@/context/ExpensesContext";
 import { useColors } from "@/hooks/useColors";
 
 const ALL = "All";
+const PENDING = "Pending";
 
 export default function ExpensesScreen() {
   const colors = useColors();
@@ -26,10 +28,16 @@ export default function ExpensesScreen() {
   const { expenses, deleteExpense, loading } = useExpenses();
   const [selectedCategory, setSelectedCategory] = useState<string>(ALL);
 
-  const categories = [ALL, ...CATEGORIES];
+  const categories = [ALL, PENDING, ...CATEGORIES];
+
+  const pendingCount = useMemo(
+    () => expenses.filter((e) => e.isPaid === false).length,
+    [expenses]
+  );
 
   const filtered = useMemo(() => {
     if (selectedCategory === ALL) return expenses;
+    if (selectedCategory === PENDING) return expenses.filter((e) => e.isPaid === false);
     return expenses.filter((e) => e.category === selectedCategory);
   }, [expenses, selectedCategory]);
 
@@ -71,35 +79,67 @@ export default function ExpensesScreen() {
         style={styles.filterScroll}
         contentContainerStyle={styles.filterContent}
       >
-        {categories.map((cat) => (
-          <Pressable
-            key={cat}
-            onPress={() => setSelectedCategory(cat)}
-            style={[
-              styles.filterChip,
-              {
-                backgroundColor:
-                  selectedCategory === cat ? colors.primary : colors.secondary,
-                borderColor:
-                  selectedCategory === cat ? colors.primary : colors.border,
-              },
-            ]}
-          >
-            <Text
+        {categories.map((cat) => {
+          const isSelected = selectedCategory === cat;
+          const isPendingChip = cat === PENDING;
+          const chipColor = isPendingChip && !isSelected ? colors.primary : colors.primary;
+          return (
+            <Pressable
+              key={cat}
+              onPress={() => setSelectedCategory(cat)}
               style={[
-                styles.filterChipText,
+                styles.filterChip,
                 {
-                  color:
-                    selectedCategory === cat
-                      ? colors.primaryForeground
-                      : colors.mutedForeground,
+                  backgroundColor: isSelected
+                    ? colors.primary
+                    : isPendingChip
+                    ? colors.primary + "12"
+                    : colors.secondary,
+                  borderColor: isSelected
+                    ? colors.primary
+                    : isPendingChip
+                    ? colors.primary + "60"
+                    : colors.border,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 5,
                 },
               ]}
             >
-              {cat}
-            </Text>
-          </Pressable>
-        ))}
+              {isPendingChip && (
+                <Feather
+                  name="clock"
+                  size={11}
+                  color={isSelected ? colors.primaryForeground : colors.primary}
+                />
+              )}
+              <Text
+                style={[
+                  styles.filterChipText,
+                  {
+                    color: isSelected
+                      ? colors.primaryForeground
+                      : isPendingChip
+                      ? colors.primary
+                      : colors.mutedForeground,
+                  },
+                ]}
+              >
+                {cat}
+              </Text>
+              {isPendingChip && pendingCount > 0 && (
+                <View
+                  style={[
+                    styles.pendingBadge,
+                    { backgroundColor: isSelected ? "rgba(255,255,255,0.3)" : colors.primary },
+                  ]}
+                >
+                  <Text style={styles.pendingBadgeText}>{pendingCount}</Text>
+                </View>
+              )}
+            </Pressable>
+          );
+        })}
       </ScrollView>
 
       <FlatList
@@ -204,5 +244,18 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     textAlign: "center",
     maxWidth: 260,
+  },
+  pendingBadge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+  },
+  pendingBadgeText: {
+    color: "#fff",
+    fontSize: 11,
+    fontFamily: "Inter_700Bold",
   },
 });
