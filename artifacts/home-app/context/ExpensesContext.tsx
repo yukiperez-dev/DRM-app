@@ -1,4 +1,3 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, {
   createContext,
   useCallback,
@@ -104,70 +103,119 @@ interface Balance {
 
 interface ExpensesContextType {
   expenses: Expense[];
-  addExpense: (expense: Omit<Expense, "id">) => void;
-  updateExpense: (id: string, updates: Omit<Expense, "id">) => void;
-  togglePaid: (id: string) => void;
-  deleteExpense: (id: string) => void;
+  addExpense: (expense: Omit<Expense, "id">) => Promise<void>;
+  updateExpense: (id: string, updates: Omit<Expense, "id">) => Promise<void>;
+  togglePaid: (id: string) => Promise<void>;
+  deleteExpense: (id: string) => Promise<void>;
   getBalance: (currency: Currency) => Balance;
   loading: boolean;
 }
 
 const ExpensesContext = createContext<ExpensesContextType | null>(null);
 
-const STORAGE_KEY = "@homeapp_expenses";
+function getApiBase(): string {
+  const domain = process.env.EXPO_PUBLIC_DOMAIN;
+  if (domain) {
+    return `https://${domain}/api`;
+  }
+  return "/api";
+}
+
+function dbRowToExpense(row: any): Expense {
+  return {
+    id: row.id,
+    title: row.title,
+    amount: parseFloat(row.amount),
+    currency: row.currency as Currency,
+    category: row.category,
+    paidBy: row.paidBy ?? row.paid_by,
+    juanfePaidAmount: row.juanfePaidAmount != null ? parseFloat(row.juanfePaidAmount) :
+                      row.juanfe_paid_amount != null ? parseFloat(row.juanfe_paid_amount) : undefined,
+    yukitaPaidAmount: row.yukitaPaidAmount != null ? parseFloat(row.yukitaPaidAmount) :
+                      row.yukita_paid_amount != null ? parseFloat(row.yukita_paid_amount) : undefined,
+    splitType: (row.splitType ?? row.split_type) as SplitType,
+    juanfeSplitPct: row.juanfeSplitPct ?? row.juanfe_split_pct ?? undefined,
+    isPaid: row.isPaid ?? row.is_paid ?? false,
+    date: row.date,
+    note: row.note ?? undefined,
+    billImageBase64: row.billImageBase64 ?? row.bill_image_base64 ?? undefined,
+  };
+}
 
 export function ExpensesProvider({ children }: { children: React.ReactNode }) {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then((data) => {
-      if (data) {
-        try {
-          setExpenses(JSON.parse(data));
-        } catch {
-          setExpenses([]);
-        }
-      }
-      setLoading(false);
-    });
-  }, []);
+  const apiBase = useMemo(() => getApiBase(), []);
 
-  const saveExpenses = useCallback((updated: Expense[]) => {
-    setExpenses(updated);
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-  }, []);
+  const fetchExpenses = useCallback(async () => {
+    try {
+      const res = await fetch(`${apiBase}/expenses`);
+      if (!res.ok) throw new Error("Failed to fetch");
+      const data = await res.json();
+      setExpenses((data as any[]).map(dbRowToExpense).reverse());
+    } catch (err) {
+      console.error("Failed to load expenses from API", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [apiBase]);
+
+  useEffect(() => {
+    fetchExpenses();
+  }, [fetchExpenses]);
 
   const addExpense = useCallback(
-    (expense: Omit<Expense, "id">) => {
-      const id =
-        Date.now().toString() + Math.random().toString(36).substr(2, 9);
-      saveExpenses([{ ...expense, id }, ...expenses]);
+    async (expense: Omit<Expense, "id">) => {
+      const id = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+      const body = { ...expense, id };
+      const res = await fetch(`${apiBase}/expenses`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error("Failed to create expense");
+      const created = dbRowToExpense(await res.json());
+      setExpenses((prev) => [created, ...prev]);
     },
-    [expenses, saveExpenses]
+    [apiBase]
   );
 
   const updateExpense = useCallback(
-    (id: string, updates: Omit<Expense, "id">) => {
-      saveExpenses(expenses.map((e) => (e.id === id ? { ...updates, id } : e)));
+    async (id: string, updates: Omit<Expense, "id">) => {
+      const res = await fetch(`${apiBase}/expenses/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) throw new Error("Failed to update expense");
+      const updated = dbRowToExpense(await res.json());
+      setExpenses((prev) => prev.map((e) => (e.id === id ? updated : e)));
     },
-    [expenses, saveExpenses]
+    [apiBase]
   );
 
   const togglePaid = useCallback(
-    (id: string) => {
-      saveExpenses(
-        expenses.map((e) => (e.id === id ? { ...e, isPaid: !e.isPaid } : e))
-      );
+    async (id: string) => {
+      const res = await fetch(`${apiBase}/expenses/${id}/toggle-paid`, {
+        method: "PATCH",
+      });
+      if (!res.ok) throw new Error("Failed to toggle expense");
+      const updated = dbRowToExpense(await res.json());
+      setExpenses((prev) => prev.map((e) => (e.id === id ? updated : e)));
     },
-    [expenses, saveExpenses]
+    [apiBase]
   );
 
   const deleteExpense = useCallback(
-    (id: string) => {
-      saveExpenses(expenses.filter((e) => e.id !== id));
+    async (id: string) => {
+      const res = await fetch(`${apiBase}/expenses/${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete expense");
+      setExpenses((prev) => prev.filter((e) => e.id !== id));
     },
-    [expenses, saveExpenses]
+    [apiBase]
   );
 
   const getBalance = useCallback(
