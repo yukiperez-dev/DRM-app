@@ -17,13 +17,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CurrencyToggle } from "@/components/CurrencyToggle";
 import {
-  CATEGORIES,
   Currency,
   convertAmount,
   formatCOP,
   formatEUR,
   useExpenses,
 } from "@/context/ExpensesContext";
+import { useCategories } from "@/context/CategoriesContext";
 import { useBudgets } from "@/context/BudgetsContext";
 import { useColors } from "@/hooks/useColors";
 
@@ -31,6 +31,7 @@ export default function SummaryScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { expenses, getBalance } = useExpenses();
+  const { categories } = useCategories();
   const { getBudget, setBudget, removeBudget, budgets } = useBudgets();
   const [currency, setCurrency] = useState<Currency>("COP");
 
@@ -55,7 +56,7 @@ export default function SummaryScreen() {
 
   const categoryTotals = useMemo(() => {
     const totals: Record<string, { juanfe: number; yukita: number; total: number; thisMonth: number }> = {};
-    for (const cat of CATEGORIES) {
+    for (const cat of categories) {
       totals[cat] = { juanfe: 0, yukita: 0, total: 0, thisMonth: 0 };
     }
     for (const e of expenses) {
@@ -80,7 +81,7 @@ export default function SummaryScreen() {
     return Object.entries(totals)
       .filter(([, v]) => v.total > 0)
       .sort((a, b) => b[1].total - a[1].total);
-  }, [expenses, thisMonthExpenses, currency]);
+  }, [expenses, thisMonthExpenses, currency, categories]);
 
   const monthlyTotals = useMemo(() => {
     const monthMap = new Map<string, { label: string; total: number; key: string }>();

@@ -15,13 +15,13 @@ import {
 } from "react-native";
 
 import {
-  CATEGORIES,
   Currency,
   convertAmount,
   formatCOP,
   formatEUR,
   useExpenses,
 } from "@/context/ExpensesContext";
+import { useCategories } from "@/context/CategoriesContext";
 import { useBudgets } from "@/context/BudgetsContext";
 import { useColors } from "@/hooks/useColors";
 
@@ -34,6 +34,7 @@ export function BudgetsSection({
 }) {
   const colors = useColors();
   const { expenses } = useExpenses();
+  const { categories } = useCategories();
   const { getBudget, setBudget, removeBudget } = useBudgets();
 
   const [budgetModal, setBudgetModal] = useState<{ category: string } | null>(null);
@@ -55,7 +56,7 @@ export function BudgetsSection({
 
   const categoryTotals = useMemo(() => {
     const totals: Record<string, { juanfe: number; yukita: number; total: number; thisMonth: number }> = {};
-    for (const cat of CATEGORIES) {
+    for (const cat of categories) {
       totals[cat] = { juanfe: 0, yukita: 0, total: 0, thisMonth: 0 };
     }
     for (const e of expenses) {
@@ -75,7 +76,7 @@ export function BudgetsSection({
       totals[e.category].thisMonth += amt;
     }
     return Object.entries(totals).sort((a, b) => b[1].total - a[1].total);
-  }, [expenses, thisMonthExpenses, currency]);
+  }, [expenses, thisMonthExpenses, currency, categories]);
 
   const formatAmt = (amt: number) =>
     currency === "COP" ? formatCOP(amt) : formatEUR(amt);
