@@ -135,25 +135,10 @@ export default function AddExpenseScreen() {
 
         {/* Amount & Currency */}
         <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.mutedForeground }]}>
-            Amount
-          </Text>
-          <View style={styles.amountRow}>
-            <TextInput
-              style={[
-                styles.amountInput,
-                {
-                  backgroundColor: colors.card,
-                  borderColor: colors.border,
-                  color: colors.foreground,
-                },
-              ]}
-              value={amount}
-              onChangeText={(t) => { setAmount(t); setError(""); }}
-              placeholder="0"
-              placeholderTextColor={colors.mutedForeground}
-              keyboardType="decimal-pad"
-            />
+          <View style={styles.amountLabelRow}>
+            <Text style={[styles.label, { color: colors.mutedForeground }]}>
+              Amount
+            </Text>
             <View
               style={[
                 styles.currencyToggle,
@@ -188,6 +173,21 @@ export default function AddExpenseScreen() {
               ))}
             </View>
           </View>
+          <TextInput
+            style={[
+              styles.amountInput,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+                color: colors.foreground,
+              },
+            ]}
+            value={amount}
+            onChangeText={(t) => { setAmount(t); setError(""); }}
+            placeholder="0"
+            placeholderTextColor={colors.mutedForeground}
+            keyboardType="decimal-pad"
+          />
         </View>
 
         {/* Category */}
@@ -427,13 +427,12 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
     paddingTop: 12,
   },
-  amountRow: {
+  amountLabelRow: {
     flexDirection: "row",
-    gap: 10,
     alignItems: "center",
+    justifyContent: "space-between",
   },
   amountInput: {
-    flex: 1,
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 14,
@@ -448,8 +447,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   currencyOpt: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
     borderRadius: 9,
   },
   currencyOptText: {
