@@ -23,6 +23,8 @@ import {
 } from "@/context/ExpensesContext";
 import { useColors } from "@/hooks/useColors";
 
+const SPLIT_PRESETS = [25, 30, 40, 50, 60, 70, 75];
+
 export default function AddExpenseScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -36,10 +38,39 @@ export default function AddExpenseScreen() {
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [paidBy, setPaidBy] = useState<PaidBy>("Juanfe");
   const [splitType, setSplitType] = useState<SplitType>("equal");
+  // juanfe's share %, yukita = 100 - juanfePct
+  const [juanfePct, setJuanfePct] = useState(50);
+  const [juanfePctText, setJuanfePctText] = useState("50");
+  const [yukitaPctText, setYukitaPctText] = useState("50");
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
 
   const isBoth = paidBy === "Both";
+  const isCustomSplit = splitType === "custom";
+
+  const handleJuanfePctChange = (text: string) => {
+    setJuanfePctText(text);
+    const val = parseInt(text, 10);
+    if (!isNaN(val) && val >= 0 && val <= 100) {
+      setJuanfePct(val);
+      setYukitaPctText(String(100 - val));
+    }
+  };
+
+  const handleYukitaPctChange = (text: string) => {
+    setYukitaPctText(text);
+    const val = parseInt(text, 10);
+    if (!isNaN(val) && val >= 0 && val <= 100) {
+      setJuanfePct(100 - val);
+      setJuanfePctText(String(100 - val));
+    }
+  };
+
+  const applyPreset = (preset: number) => {
+    setJuanfePct(preset);
+    setJuanfePctText(String(preset));
+    setYukitaPctText(String(100 - preset));
+  };
 
   const handleSave = () => {
     if (!title.trim()) {
@@ -47,18 +78,23 @@ export default function AddExpenseScreen() {
       return;
     }
 
+    if (isCustomSplit) {
+      const j = parseInt(juanfePctText, 10);
+      const y = parseInt(yukitaPctText, 10);
+      if (isNaN(j) || isNaN(y) || j + y !== 100 || j < 0 || y < 0) {
+        setError("Percentages must add up to 100%");
+        return;
+      }
+    }
+
     if (isBoth) {
       const j = parseFloat(juanfeAmount.replace(/,/g, ""));
       const y = parseFloat(yukitaAmount.replace(/,/g, ""));
-      if ((!juanfeAmount && !yukitaAmount) || (isNaN(j) && isNaN(y))) {
-        setError("Please enter at least one amount");
-        return;
-      }
       const juanfeFinal = isNaN(j) || juanfeAmount === "" ? 0 : j;
       const yukitaFinal = isNaN(y) || yukitaAmount === "" ? 0 : y;
       const total = juanfeFinal + yukitaFinal;
       if (total <= 0) {
-        setError("Total amount must be greater than 0");
+        setError("Please enter at least one amount");
         return;
       }
       if (Platform.OS !== "web") {
@@ -73,6 +109,7 @@ export default function AddExpenseScreen() {
         juanfePaidAmount: juanfeFinal,
         yukitaPaidAmount: yukitaFinal,
         splitType,
+        juanfeSplitPct: isCustomSplit ? juanfePct : undefined,
         date: new Date().toISOString(),
         note: note.trim() || undefined,
       });
@@ -92,6 +129,7 @@ export default function AddExpenseScreen() {
         category,
         paidBy,
         splitType,
+        juanfeSplitPct: isCustomSplit ? juanfePct : undefined,
         date: new Date().toISOString(),
         note: note.trim() || undefined,
       });
@@ -141,9 +179,7 @@ export default function AddExpenseScreen() {
         ]}
       >
         {error ? (
-          <View
-            style={[styles.errorBox, { backgroundColor: colors.destructive + "18" }]}
-          >
+          <View style={[styles.errorBox, { backgroundColor: colors.destructive + "18" }]}>
             <Text style={[styles.errorText, { color: colors.destructive }]}>
               {error}
             </Text>
@@ -152,9 +188,7 @@ export default function AddExpenseScreen() {
 
         {/* Title */}
         <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.mutedForeground }]}>
-            Title
-          </Text>
+          <Text style={[styles.label, { color: colors.mutedForeground }]}>Title</Text>
           <TextInput
             style={[
               styles.input,
@@ -168,11 +202,9 @@ export default function AddExpenseScreen() {
           />
         </View>
 
-        {/* Paid by — placed before amount so "Both" reveals split inputs */}
+        {/* Paid by */}
         <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.mutedForeground }]}>
-            Paid by
-          </Text>
+          <Text style={[styles.label, { color: colors.mutedForeground }]}>Paid by</Text>
           <View style={styles.threeRow}>
             {paidByOptions.map(({ key, label, color }) => {
               const isSelected = paidBy === key;
@@ -188,21 +220,15 @@ export default function AddExpenseScreen() {
                     },
                   ]}
                 >
-                  {key !== "Both" && (
-                    <View style={[styles.personDot, { backgroundColor: color }]} />
-                  )}
-                  {key === "Both" && (
+                  {key === "Both" ? (
                     <View style={styles.bothDots}>
                       <View style={[styles.personDot, { backgroundColor: colors.juanfe }]} />
                       <View style={[styles.personDot, { backgroundColor: colors.yukita, marginLeft: -4 }]} />
                     </View>
+                  ) : (
+                    <View style={[styles.personDot, { backgroundColor: color }]} />
                   )}
-                  <Text
-                    style={[
-                      styles.threeBtnText,
-                      { color: isSelected ? color : colors.mutedForeground },
-                    ]}
-                  >
+                  <Text style={[styles.threeBtnText, { color: isSelected ? color : colors.mutedForeground }]}>
                     {label}
                   </Text>
                 </Pressable>
@@ -248,11 +274,9 @@ export default function AddExpenseScreen() {
           {isBoth ? (
             <View style={styles.splitAmountRow}>
               <View style={styles.splitAmountField}>
-                <View style={styles.splitAmountLabel}>
+                <View style={styles.splitAmountLabelRow}>
                   <View style={[styles.personDot, { backgroundColor: colors.juanfe }]} />
-                  <Text style={[styles.splitAmountName, { color: colors.juanfe }]}>
-                    Juanfe
-                  </Text>
+                  <Text style={[styles.splitAmountName, { color: colors.juanfe }]}>Juanfe</Text>
                 </View>
                 <TextInput
                   style={[
@@ -266,17 +290,13 @@ export default function AddExpenseScreen() {
                   keyboardType="decimal-pad"
                 />
               </View>
-
-              <View style={[styles.plusSeparator]}>
+              <View style={styles.plusSeparator}>
                 <Text style={[styles.plusText, { color: colors.mutedForeground }]}>+</Text>
               </View>
-
               <View style={styles.splitAmountField}>
-                <View style={styles.splitAmountLabel}>
+                <View style={styles.splitAmountLabelRow}>
                   <View style={[styles.personDot, { backgroundColor: colors.yukita }]} />
-                  <Text style={[styles.splitAmountName, { color: colors.yukita }]}>
-                    Yukita
-                  </Text>
+                  <Text style={[styles.splitAmountName, { color: colors.yukita }]}>Yukita</Text>
                 </View>
                 <TextInput
                   style={[
@@ -308,9 +328,7 @@ export default function AddExpenseScreen() {
 
         {/* Category */}
         <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.mutedForeground }]}>
-            Category
-          </Text>
+          <Text style={[styles.label, { color: colors.mutedForeground }]}>Category</Text>
           <View style={styles.chipGrid}>
             {CATEGORIES.map((cat) => (
               <Pressable
@@ -339,59 +357,137 @@ export default function AddExpenseScreen() {
 
         {/* Split */}
         <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.mutedForeground }]}>
-            Split
-          </Text>
-          <View style={styles.twoRow}>
-            <Pressable
-              onPress={() => setSplitType("equal")}
-              style={[
-                styles.twoBtn,
-                {
-                  backgroundColor: splitType === "equal" ? colors.primary + "22" : colors.secondary,
-                  borderColor: splitType === "equal" ? colors.primary : colors.border,
-                },
-              ]}
-            >
-              <Feather
-                name="users"
-                size={16}
-                color={splitType === "equal" ? colors.primary : colors.mutedForeground}
-              />
-              <Text
-                style={[
-                  styles.twoBtnText,
-                  { color: splitType === "equal" ? colors.primary : colors.mutedForeground },
-                ]}
-              >
-                Split equally
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => setSplitType("full")}
-              style={[
-                styles.twoBtn,
-                {
-                  backgroundColor: splitType === "full" ? colors.primary + "22" : colors.secondary,
-                  borderColor: splitType === "full" ? colors.primary : colors.border,
-                },
-              ]}
-            >
-              <Feather
-                name="user"
-                size={16}
-                color={splitType === "full" ? colors.primary : colors.mutedForeground}
-              />
-              <Text
-                style={[
-                  styles.twoBtnText,
-                  { color: splitType === "full" ? colors.primary : colors.mutedForeground },
-                ]}
-              >
-                Not shared
-              </Text>
-            </Pressable>
+          <Text style={[styles.label, { color: colors.mutedForeground }]}>Split</Text>
+          <View style={styles.threeRow}>
+            {(
+              [
+                { key: "equal" as SplitType, icon: "users", label: "50 / 50" },
+                { key: "custom" as SplitType, icon: "sliders", label: "Custom" },
+                { key: "full" as SplitType, icon: "user", label: "No split" },
+              ] as const
+            ).map(({ key, icon, label }) => {
+              const isSelected = splitType === key;
+              return (
+                <Pressable
+                  key={key}
+                  onPress={() => setSplitType(key)}
+                  style={[
+                    styles.threeBtn,
+                    {
+                      backgroundColor: isSelected ? colors.primary + "22" : colors.secondary,
+                      borderColor: isSelected ? colors.primary : colors.border,
+                    },
+                  ]}
+                >
+                  <Feather
+                    name={icon}
+                    size={14}
+                    color={isSelected ? colors.primary : colors.mutedForeground}
+                  />
+                  <Text
+                    style={[
+                      styles.threeBtnText,
+                      { color: isSelected ? colors.primary : colors.mutedForeground },
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
+
+          {/* Custom split controls */}
+          {isCustomSplit && (
+            <View
+              style={[
+                styles.customSplitBox,
+                { backgroundColor: colors.secondary, borderColor: colors.border },
+              ]}
+            >
+              {/* Visual split bar */}
+              <View style={[styles.splitBar, { backgroundColor: colors.border }]}>
+                <View
+                  style={[
+                    styles.splitBarJ,
+                    { width: `${juanfePct}%` as any, backgroundColor: colors.juanfe },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.splitBarY,
+                    { width: `${100 - juanfePct}%` as any, backgroundColor: colors.yukita },
+                  ]}
+                />
+              </View>
+
+              {/* Percentage inputs */}
+              <View style={styles.pctRow}>
+                <View style={styles.pctField}>
+                  <View style={[styles.personDot, { backgroundColor: colors.juanfe }]} />
+                  <Text style={[styles.pctName, { color: colors.juanfe }]}>Juanfe</Text>
+                  <View style={[styles.pctInputWrap, { borderColor: colors.juanfe + "60", backgroundColor: colors.card }]}>
+                    <TextInput
+                      style={[styles.pctInput, { color: colors.foreground }]}
+                      value={juanfePctText}
+                      onChangeText={handleJuanfePctChange}
+                      keyboardType="number-pad"
+                      maxLength={3}
+                      selectTextOnFocus
+                    />
+                    <Text style={[styles.pctSign, { color: colors.mutedForeground }]}>%</Text>
+                  </View>
+                </View>
+
+                <Text style={[styles.pctDivider, { color: colors.mutedForeground }]}>+</Text>
+
+                <View style={styles.pctField}>
+                  <View style={[styles.personDot, { backgroundColor: colors.yukita }]} />
+                  <Text style={[styles.pctName, { color: colors.yukita }]}>Yukita</Text>
+                  <View style={[styles.pctInputWrap, { borderColor: colors.yukita + "60", backgroundColor: colors.card }]}>
+                    <TextInput
+                      style={[styles.pctInput, { color: colors.foreground }]}
+                      value={yukitaPctText}
+                      onChangeText={handleYukitaPctChange}
+                      keyboardType="number-pad"
+                      maxLength={3}
+                      selectTextOnFocus
+                    />
+                    <Text style={[styles.pctSign, { color: colors.mutedForeground }]}>%</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Quick presets */}
+              <View style={styles.presetRow}>
+                {SPLIT_PRESETS.map((preset) => {
+                  const isActive = juanfePct === preset;
+                  return (
+                    <Pressable
+                      key={preset}
+                      onPress={() => applyPreset(preset)}
+                      style={[
+                        styles.presetChip,
+                        {
+                          backgroundColor: isActive ? colors.primary : colors.card,
+                          borderColor: isActive ? colors.primary : colors.border,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.presetChipText,
+                          { color: isActive ? colors.primaryForeground : colors.mutedForeground },
+                        ]}
+                      >
+                        {preset}/{100 - preset}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          )}
         </View>
 
         {/* Note */}
@@ -438,26 +534,11 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     borderBottomWidth: 1,
   },
-  headerTitle: {
-    fontSize: 17,
-    fontFamily: "Inter_600SemiBold",
-  },
-  saveBtn: {
-    fontSize: 16,
-    fontFamily: "Inter_600SemiBold",
-  },
-  scroll: {
-    padding: 20,
-    gap: 20,
-  },
-  errorBox: {
-    padding: 12,
-    borderRadius: 10,
-  },
-  errorText: {
-    fontSize: 14,
-    fontFamily: "Inter_500Medium",
-  },
+  headerTitle: { fontSize: 17, fontFamily: "Inter_600SemiBold" },
+  saveBtn: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
+  scroll: { padding: 20, gap: 20 },
+  errorBox: { padding: 12, borderRadius: 10 },
+  errorText: { fontSize: 14, fontFamily: "Inter_500Medium" },
   field: { gap: 8 },
   label: {
     fontSize: 13,
@@ -473,16 +554,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: "Inter_400Regular",
   },
-  noteInput: {
-    height: 80,
-    textAlignVertical: "top",
-    paddingTop: 12,
-  },
-  // Three-button row (Juanfe / Yukita / Both)
-  threeRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
+  noteInput: { height: 80, textAlignVertical: "top", paddingTop: 12 },
+  // Three-button rows
+  threeRow: { flexDirection: "row", gap: 8 },
   threeBtn: {
     flex: 1,
     flexDirection: "row",
@@ -493,37 +567,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
   },
-  threeBtnText: {
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-  },
-  bothDots: {
-    flexDirection: "row",
-  },
-  personDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  // Two-button row (split)
-  twoRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  twoBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  twoBtnText: {
-    fontSize: 14,
-    fontFamily: "Inter_600SemiBold",
-  },
+  threeBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  bothDots: { flexDirection: "row" },
+  personDot: { width: 8, height: 8, borderRadius: 4 },
   // Amount fields
   amountLabelRow: {
     flexDirection: "row",
@@ -538,25 +584,10 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontFamily: "Inter_600SemiBold",
   },
-  // Split amount (Both mode)
-  splitAmountRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 8,
-  },
-  splitAmountField: {
-    flex: 1,
-    gap: 6,
-  },
-  splitAmountLabel: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-  },
-  splitAmountName: {
-    fontSize: 13,
-    fontFamily: "Inter_600SemiBold",
-  },
+  splitAmountRow: { flexDirection: "row", alignItems: "flex-end", gap: 8 },
+  splitAmountField: { flex: 1, gap: 6 },
+  splitAmountLabelRow: { flexDirection: "row", alignItems: "center", gap: 5 },
+  splitAmountName: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   splitAmountInput: {
     borderWidth: 1.5,
     borderRadius: 12,
@@ -566,47 +597,62 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     textAlign: "center",
   },
-  plusSeparator: {
-    paddingBottom: 14,
-    alignItems: "center",
-    justifyContent: "flex-end",
-  },
-  plusText: {
-    fontSize: 20,
-    fontFamily: "Inter_400Regular",
-  },
+  plusSeparator: { paddingBottom: 14, alignItems: "center", justifyContent: "flex-end" },
+  plusText: { fontSize: 20, fontFamily: "Inter_400Regular" },
   // Currency toggle
-  currencyToggle: {
-    flexDirection: "row",
-    borderRadius: 12,
-    padding: 3,
-    borderWidth: 1,
-  },
-  currencyOpt: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 9,
-  },
-  currencyOptText: {
-    fontSize: 14,
-    fontFamily: "Inter_600SemiBold",
-  },
+  currencyToggle: { flexDirection: "row", borderRadius: 12, padding: 3, borderWidth: 1 },
+  currencyOpt: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 9 },
+  currencyOptText: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   // Category chips
-  chipGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
+  chipGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chip: { paddingHorizontal: 13, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
+  chipText: { fontSize: 13, fontFamily: "Inter_500Medium" },
+  // Custom split
+  customSplitBox: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    gap: 12,
+    marginTop: 4,
   },
-  chip: {
-    paddingHorizontal: 13,
-    paddingVertical: 7,
-    borderRadius: 20,
+  splitBar: {
+    height: 8,
+    borderRadius: 4,
+    flexDirection: "row",
+    overflow: "hidden",
+  },
+  splitBarJ: { height: "100%", borderTopLeftRadius: 4, borderBottomLeftRadius: 4 },
+  splitBarY: { height: "100%", borderTopRightRadius: 4, borderBottomRightRadius: 4 },
+  pctRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  pctField: { flex: 1, flexDirection: "row", alignItems: "center", gap: 6 },
+  pctName: { fontSize: 13, fontFamily: "Inter_600SemiBold", flex: 1 },
+  pctInputWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 2,
+  },
+  pctInput: {
+    fontSize: 18,
+    fontFamily: "Inter_700Bold",
+    width: 36,
+    textAlign: "center",
+    padding: 0,
+  },
+  pctSign: { fontSize: 14, fontFamily: "Inter_500Medium" },
+  pctDivider: { fontSize: 18, fontFamily: "Inter_400Regular" },
+  presetRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  presetChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
     borderWidth: 1,
   },
-  chipText: {
-    fontSize: 13,
-    fontFamily: "Inter_500Medium",
-  },
+  presetChipText: { fontSize: 12, fontFamily: "Inter_500Medium" },
+  // Save button
   saveButton: {
     paddingVertical: 16,
     borderRadius: 14,
@@ -618,8 +664,5 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
-  saveButtonText: {
-    fontSize: 16,
-    fontFamily: "Inter_700Bold",
-  },
+  saveButtonText: { fontSize: 16, fontFamily: "Inter_700Bold" },
 });

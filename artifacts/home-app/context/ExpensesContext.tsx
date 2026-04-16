@@ -10,7 +10,7 @@ import React, {
 export type Currency = "COP" | "EUR";
 export type Person = "Juanfe" | "Yukita";
 export type PaidBy = "Juanfe" | "Yukita" | "Both";
-export type SplitType = "equal" | "full";
+export type SplitType = "equal" | "custom" | "full";
 
 export interface Expense {
   id: string;
@@ -22,6 +22,7 @@ export interface Expense {
   juanfePaidAmount?: number;
   yukitaPaidAmount?: number;
   splitType: SplitType;
+  juanfeSplitPct?: number; // 0–100, used when splitType === "custom"
   date: string;
   note?: string;
 }
@@ -78,6 +79,15 @@ export function formatBoth(amount: number, currency: Currency): string {
     const cop = convertAmount(amount, "EUR", "COP");
     return `${formatEUR(amount)} · ${formatCOP(cop)}`;
   }
+}
+
+export function getSplitLabel(expense: Expense): string | null {
+  if (expense.splitType === "full") return "Not shared";
+  if (expense.splitType === "custom") {
+    const j = expense.juanfeSplitPct ?? 50;
+    return `J ${j}% · Y ${100 - j}%`;
+  }
+  return null;
 }
 
 interface Balance {
@@ -140,13 +150,20 @@ export function ExpensesProvider({ children }: { children: React.ReactNode }) {
 
   const getBalance = useCallback(
     (currency: Currency): Balance => {
-      // juanfePaid = total Juanfe owes to Yukita (Yukita paid, Juanfe should reimburse)
-      // yukitaPaid = total Yukita owes to Juanfe (Juanfe paid, Yukita should reimburse)
+      // juanfePaid tracks what Juanfe owes Yukita (Yukita paid and Juanfe should reimburse)
+      // yukitaPaid tracks what Yukita owes Juanfe (Juanfe paid and Yukita should reimburse)
       let juanfePaid = 0;
       let yukitaPaid = 0;
 
       for (const expense of expenses) {
-        if (expense.splitType !== "equal") continue;
+        if (expense.splitType === "full") continue;
+
+        // Determine each person's share percentage (0–1)
+        const juanfePct =
+          expense.splitType === "custom"
+            ? (expense.juanfeSplitPct ?? 50) / 100
+            : 0.5;
+        const yukitaPct = 1 - juanfePct;
 
         if (expense.paidBy === "Both") {
           const juanfeConv = convertAmount(
@@ -160,13 +177,12 @@ export function ExpensesProvider({ children }: { children: React.ReactNode }) {
             currency
           );
           const total = juanfeConv + yukitaConv;
-          const half = total / 2;
-          // Positive excess means that person overpaid, the other owes them
-          const juanfeExcess = juanfeConv - half;
+          // Positive excess = that person overpaid → the other owes them
+          const juanfeExcess = juanfeConv - total * juanfePct;
           if (juanfeExcess > 0) {
-            yukitaPaid += juanfeExcess; // yukita owes juanfe
+            yukitaPaid += juanfeExcess; // Yukita owes Juanfe
           } else if (juanfeExcess < 0) {
-            juanfePaid += Math.abs(juanfeExcess); // juanfe owes yukita
+            juanfePaid += Math.abs(juanfeExcess); // Juanfe owes Yukita
           }
         } else {
           const amountInCurrency = convertAmount(
@@ -174,11 +190,10 @@ export function ExpensesProvider({ children }: { children: React.ReactNode }) {
             expense.currency,
             currency
           );
-          const half = amountInCurrency / 2;
           if (expense.paidBy === "Juanfe") {
-            yukitaPaid += half;
+            yukitaPaid += amountInCurrency * yukitaPct;
           } else {
-            juanfePaid += half;
+            juanfePaid += amountInCurrency * juanfePct;
           }
         }
       }

@@ -13,6 +13,7 @@ import {
 import {
   Expense,
   formatBoth,
+  getSplitLabel,
 } from "@/context/ExpensesContext";
 import { useColors } from "@/hooks/useColors";
 
@@ -56,14 +57,14 @@ export function ExpenseCard({ expense, onDelete }: Props) {
   };
 
   const iconName = (CATEGORY_ICONS[expense.category] as any) || "circle";
+  const isBoth = expense.paidBy === "Both";
+  const splitLabel = getSplitLabel(expense);
 
   const date = new Date(expense.date);
   const dateStr = date.toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
   });
-
-  const isBoth = expense.paidBy === "Both";
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -125,11 +126,11 @@ export function ExpenseCard({ expense, onDelete }: Props) {
             {" · "}{dateStr}
           </Text>
         </View>
-        {expense.splitType === "full" && (
+        {splitLabel ? (
           <Text style={[styles.splitNote, { color: colors.mutedForeground }]}>
-            Not shared
+            {splitLabel}
           </Text>
-        )}
+        ) : null}
       </View>
     </View>
   );
