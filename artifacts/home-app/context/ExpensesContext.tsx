@@ -84,6 +84,21 @@ export function formatBoth(amount: number, currency: Currency): string {
   }
 }
 
+export function formatDateEU(dateStr: string): string {
+  const d = new Date(dateStr);
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  const month = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const year = d.getUTCFullYear();
+  return `${day}/${month}/${year}`;
+}
+
+export function formatDateEUShort(dateStr: string): string {
+  const d = new Date(dateStr);
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  const month = String(d.getUTCMonth() + 1).padStart(2, "0");
+  return `${day}/${month}`;
+}
+
 export function getSplitLabel(expense: Expense): string | null {
   if (expense.splitType === "full") return "Not shared";
   if (expense.splitType === "custom") {

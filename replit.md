@@ -36,13 +36,16 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
   - **Expenses section**: Track shared expenses with categories, who paid, split type
   - **Dual currency**: COP and EUR, always shown side by side (conversion rate: 1 EUR = 4348 COP)
   - **Categories**: Groceries, Rent & Utilities, Dining Out, Transport, Health, Entertainment, Travel, Shopping, Home, Other
-  - **People**: Juanfe (blue) and Yukita (terracotta)
-  - **Summary tab**: Shows who owes whom, breakdown by category and by person
+  - **People**: Juanfe (orange #E07A2F) and Yukita (blue #3A7EC0)
+  - **Date format**: European dd/mm/yyyy everywhere (dd/mm short on cards, full date in detail view)
+  - **Summary tab**: Shows who owes whom, breakdown by category and by person, monthly bar chart
+  - **Budgets**: Per-category monthly budgets stored in DB; set by tapping any category row in Summary; shows progress bar, remaining/over-budget status badge
   - **Recurring expenses tab**: Define recurring monthly expenses (Rent, WiFi, Phone, Health Insurance pre-seeded). Generate them with one tap per month; skips duplicates automatically. CRUD for custom recurring entries.
 - **Planned features**: Chores, Shopping list
 
 ### Key files
-- `artifacts/home-app/context/ExpensesContext.tsx` — all expense logic, storage, conversion
+- `artifacts/home-app/context/ExpensesContext.tsx` — all expense logic, storage, conversion, date helpers (formatDateEU, formatDateEUShort)
+- `artifacts/home-app/context/BudgetsContext.tsx` — per-category monthly budget CRUD (backed by API)
 - `artifacts/home-app/context/RecurringExpensesContext.tsx` — recurring expense CRUD + generate
 - `artifacts/home-app/app/(tabs)/index.tsx` — expense list screen
 - `artifacts/home-app/app/(tabs)/recurring.tsx` — recurring expenses list + generate button

@@ -17,6 +17,7 @@ import {
 import {
   Expense,
   formatBoth,
+  formatDateEUShort,
   getSplitLabel,
 } from "@/context/ExpensesContext";
 import { useColors } from "@/hooks/useColors";
@@ -70,8 +71,7 @@ export function ExpenseCard({ expense, onDelete }: Props) {
   const hasBill = Boolean(expense.billImageBase64);
   const isPending = expense.isPaid === false;
 
-  const date = new Date(expense.date);
-  const dateStr = date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  const dateStr = formatDateEUShort(expense.date);
 
   return (
     <>

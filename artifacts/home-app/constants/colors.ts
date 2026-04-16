@@ -27,7 +27,7 @@ const colors = {
     border: "#E7E2DA",
     input: "#ECE7DE",
 
-    juanfe: "#A78B9E",
+    juanfe: "#E07A2F",
     yukita: "#3A7EC0",
     success: "#4CAF50",
     warning: "#F59E0B",

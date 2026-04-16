@@ -25,6 +25,7 @@ import {
   Currency,
   PaidBy,
   SplitType,
+  formatDateEU,
   useExpenses,
 } from "@/context/ExpensesContext";
 import { useColors } from "@/hooks/useColors";
@@ -201,9 +202,7 @@ export default function ExpenseDetailScreen() {
   ];
 
   // ── read-only detail ──────────────────────────────────────────────────
-  const dateStr = new Date(expense.date).toLocaleDateString("en-GB", {
-    weekday: "long", day: "numeric", month: "long", year: "numeric",
-  });
+  const dateStr = formatDateEU(expense.date);
   const splitLabel =
     expense.splitType === "full"
       ? "Not shared"
