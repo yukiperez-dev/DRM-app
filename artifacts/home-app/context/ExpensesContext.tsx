@@ -25,6 +25,7 @@ export interface Expense {
   juanfeSplitPct?: number; // 0–100, used when splitType === "custom"
   date: string;
   note?: string;
+  billImageBase64?: string; // data URI: "data:image/jpeg;base64,..."
 }
 
 export const CATEGORIES = [

@@ -1,9 +1,12 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import React from "react";
+import { Image } from "expo-image";
+import React, { useState } from "react";
 import {
   Alert,
+  Modal,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -37,6 +40,7 @@ interface Props {
 
 export function ExpenseCard({ expense, onDelete }: Props) {
   const colors = useColors();
+  const [billVisible, setBillVisible] = useState(false);
 
   const handleDelete = () => {
     if (Platform.OS === "web") {
@@ -59,6 +63,7 @@ export function ExpenseCard({ expense, onDelete }: Props) {
   const iconName = (CATEGORY_ICONS[expense.category] as any) || "circle";
   const isBoth = expense.paidBy === "Both";
   const splitLabel = getSplitLabel(expense);
+  const hasBill = Boolean(expense.billImageBase64);
 
   const date = new Date(expense.date);
   const dateStr = date.toLocaleDateString("en-GB", {
@@ -67,72 +72,117 @@ export function ExpenseCard({ expense, onDelete }: Props) {
   });
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-      <View style={[styles.iconBox, { backgroundColor: colors.secondary }]}>
-        <Feather name={iconName} size={20} color={colors.primary} />
-      </View>
-      <View style={styles.content}>
-        <View style={styles.row}>
-          <Text style={[styles.title, { color: colors.foreground }]} numberOfLines={1}>
-            {expense.title}
-          </Text>
-          <TouchableOpacity onPress={handleDelete} hitSlop={8}>
-            <Feather name="trash-2" size={16} color={colors.mutedForeground} />
-          </TouchableOpacity>
+    <>
+      <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.iconBox, { backgroundColor: colors.secondary }]}>
+          <Feather name={iconName} size={20} color={colors.primary} />
         </View>
-        <Text style={[styles.amount, { color: colors.foreground }]}>
-          {formatBoth(expense.amount, expense.currency)}
-        </Text>
-        <View style={styles.meta}>
-          <View style={[styles.pill, { backgroundColor: colors.secondary }]}>
-            <Text style={[styles.pillText, { color: colors.mutedForeground }]}>
-              {expense.category}
+        <View style={styles.content}>
+          <View style={styles.row}>
+            <Text style={[styles.title, { color: colors.foreground }]} numberOfLines={1}>
+              {expense.title}
+            </Text>
+            <View style={styles.rowActions}>
+              {hasBill && (
+                <TouchableOpacity
+                  onPress={() => setBillVisible(true)}
+                  hitSlop={8}
+                  style={[styles.billBadge, { backgroundColor: colors.primary + "18", borderColor: colors.primary + "40" }]}
+                >
+                  <Feather name="image" size={12} color={colors.primary} />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity onPress={handleDelete} hitSlop={8}>
+                <Feather name="trash-2" size={16} color={colors.mutedForeground} />
+              </TouchableOpacity>
+            </View>
+          </View>
+          <Text style={[styles.amount, { color: colors.foreground }]}>
+            {formatBoth(expense.amount, expense.currency)}
+          </Text>
+          <View style={styles.meta}>
+            <View style={[styles.pill, { backgroundColor: colors.secondary }]}>
+              <Text style={[styles.pillText, { color: colors.mutedForeground }]}>
+                {expense.category}
+              </Text>
+            </View>
+            <View style={styles.spacer} />
+            {isBoth ? (
+              <View style={styles.bothPayer}>
+                <View style={[styles.payerDot, { backgroundColor: colors.juanfe }]} />
+                <View style={[styles.payerDotOverlap, { backgroundColor: colors.yukita }]} />
+                <Text style={[styles.payer, { color: colors.mutedForeground }]}>Both</Text>
+              </View>
+            ) : (
+              <View style={styles.singlePayer}>
+                <View
+                  style={[
+                    styles.payerDot,
+                    { backgroundColor: expense.paidBy === "Juanfe" ? colors.juanfe : colors.yukita },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.payer,
+                    { color: expense.paidBy === "Juanfe" ? colors.juanfe : colors.yukita },
+                  ]}
+                >
+                  {expense.paidBy}
+                </Text>
+              </View>
+            )}
+            <Text style={[styles.date, { color: colors.mutedForeground }]}>
+              {" · "}{dateStr}
             </Text>
           </View>
-          <View style={styles.spacer} />
-          {isBoth ? (
-            <View style={styles.bothPayer}>
-              <View style={[styles.payerDot, { backgroundColor: colors.juanfe }]} />
-              <View style={[styles.payerDotOverlap, { backgroundColor: colors.yukita }]} />
-              <Text style={[styles.payer, { color: colors.mutedForeground }]}>
-                Both
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.singlePayer}>
-              <View
-                style={[
-                  styles.payerDot,
-                  {
-                    backgroundColor:
-                      expense.paidBy === "Juanfe" ? colors.juanfe : colors.yukita,
-                  },
-                ]}
+          {splitLabel ? (
+            <Text style={[styles.splitNote, { color: colors.mutedForeground }]}>
+              {splitLabel}
+            </Text>
+          ) : null}
+
+          {/* Bill thumbnail strip */}
+          {hasBill && (
+            <Pressable onPress={() => setBillVisible(true)}>
+              <Image
+                source={{ uri: expense.billImageBase64 }}
+                style={[styles.billThumb, { borderColor: colors.border }]}
+                contentFit="cover"
               />
-              <Text
-                style={[
-                  styles.payer,
-                  {
-                    color:
-                      expense.paidBy === "Juanfe" ? colors.juanfe : colors.yukita,
-                  },
-                ]}
-              >
-                {expense.paidBy}
-              </Text>
-            </View>
+            </Pressable>
           )}
-          <Text style={[styles.date, { color: colors.mutedForeground }]}>
-            {" · "}{dateStr}
-          </Text>
         </View>
-        {splitLabel ? (
-          <Text style={[styles.splitNote, { color: colors.mutedForeground }]}>
-            {splitLabel}
-          </Text>
-        ) : null}
       </View>
-    </View>
+
+      {/* Full-screen bill viewer */}
+      {hasBill && (
+        <Modal
+          visible={billVisible}
+          animationType="fade"
+          transparent
+          onRequestClose={() => setBillVisible(false)}
+        >
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={() => setBillVisible(false)}
+          >
+            <View style={styles.modalContent}>
+              <Image
+                source={{ uri: expense.billImageBase64 }}
+                style={styles.modalImage}
+                contentFit="contain"
+              />
+              <TouchableOpacity
+                style={[styles.modalClose, { backgroundColor: colors.card }]}
+                onPress={() => setBillVisible(false)}
+              >
+                <Feather name="x" size={20} color={colors.foreground} />
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Modal>
+      )}
+    </>
   );
 }
 
@@ -166,6 +216,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  rowActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   title: {
     fontSize: 15,
@@ -227,5 +282,53 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: "Inter_400Regular",
     fontStyle: "italic",
+  },
+  billBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  billThumb: {
+    width: "100%",
+    height: 120,
+    borderRadius: 10,
+    marginTop: 6,
+    borderWidth: 1,
+  },
+  // Modal
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.85)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
+  modalContent: {
+    width: "100%",
+    maxWidth: 500,
+    position: "relative",
+  },
+  modalImage: {
+    width: "100%",
+    height: 500,
+    borderRadius: 16,
+  },
+  modalClose: {
+    position: "absolute",
+    top: -14,
+    right: -14,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 6,
   },
 });

@@ -1,8 +1,12 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
+  ActionSheetIOS,
+  Alert,
   Platform,
   Pressable,
   StyleSheet,
@@ -43,9 +47,67 @@ export default function AddExpenseScreen() {
   const [juanfePctText, setJuanfePctText] = useState("50");
   const [yukitaPctText, setYukitaPctText] = useState("50");
   const [note, setNote] = useState("");
+  const [billImageBase64, setBillImageBase64] = useState<string | undefined>(undefined);
   const [error, setError] = useState("");
 
   const isBoth = paidBy === "Both";
+
+  const pickFromSource = async (useCamera: boolean) => {
+    if (useCamera) {
+      if (Platform.OS !== "web") {
+        const { granted } = await ImagePicker.requestCameraPermissionsAsync();
+        if (!granted) {
+          Alert.alert("Permission needed", "Camera access is required to take a photo.");
+          return;
+        }
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        quality: 0.6,
+        base64: true,
+      });
+      if (!result.canceled && result.assets[0].base64) {
+        setBillImageBase64(`data:image/jpeg;base64,${result.assets[0].base64}`);
+      }
+    } else {
+      if (Platform.OS !== "web") {
+        const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!granted) {
+          Alert.alert("Permission needed", "Photo library access is required.");
+          return;
+        }
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: "images",
+        allowsEditing: true,
+        quality: 0.6,
+        base64: true,
+      });
+      if (!result.canceled && result.assets[0].base64) {
+        setBillImageBase64(`data:image/jpeg;base64,${result.assets[0].base64}`);
+      }
+    }
+  };
+
+  const handlePickBill = () => {
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options: ["Cancel", "Take Photo", "Choose from Library"], cancelButtonIndex: 0 },
+        (index) => {
+          if (index === 1) pickFromSource(true);
+          if (index === 2) pickFromSource(false);
+        }
+      );
+    } else if (Platform.OS === "web") {
+      pickFromSource(false);
+    } else {
+      Alert.alert("Add Bill", "Choose source", [
+        { text: "Cancel", style: "cancel" },
+        { text: "Take Photo", onPress: () => pickFromSource(true) },
+        { text: "Choose from Library", onPress: () => pickFromSource(false) },
+      ]);
+    }
+  };
   const isCustomSplit = splitType === "custom";
 
   const handleJuanfePctChange = (text: string) => {
@@ -112,6 +174,7 @@ export default function AddExpenseScreen() {
         juanfeSplitPct: isCustomSplit ? juanfePct : undefined,
         date: new Date().toISOString(),
         note: note.trim() || undefined,
+        billImageBase64,
       });
     } else {
       const parsedAmount = parseFloat(amount.replace(/,/g, ""));
@@ -132,6 +195,7 @@ export default function AddExpenseScreen() {
         juanfeSplitPct: isCustomSplit ? juanfePct : undefined,
         date: new Date().toISOString(),
         note: note.trim() || undefined,
+        billImageBase64,
       });
     }
 
@@ -490,6 +554,51 @@ export default function AddExpenseScreen() {
           )}
         </View>
 
+        {/* Bill Photo */}
+        <View style={styles.field}>
+          <Text style={[styles.label, { color: colors.mutedForeground }]}>
+            Bill Photo (optional)
+          </Text>
+          {billImageBase64 ? (
+            <View style={styles.billPreviewWrap}>
+              <Image
+                source={{ uri: billImageBase64 }}
+                style={styles.billPreview}
+                contentFit="cover"
+              />
+              <TouchableOpacity
+                style={[styles.billRemoveBtn, { backgroundColor: colors.destructive }]}
+                onPress={() => setBillImageBase64(undefined)}
+              >
+                <Feather name="x" size={14} color="#fff" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.billChangeBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+                onPress={handlePickBill}
+              >
+                <Feather name="refresh-cw" size={13} color={colors.mutedForeground} />
+                <Text style={[styles.billChangeBtnText, { color: colors.mutedForeground }]}>
+                  Replace
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={[styles.billPicker, { backgroundColor: colors.secondary, borderColor: colors.border }]}
+              onPress={handlePickBill}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.billPickerIcon, { backgroundColor: colors.primary + "22" }]}>
+                <Feather name="camera" size={22} color={colors.primary} />
+              </View>
+              <Text style={[styles.billPickerText, { color: colors.mutedForeground }]}>
+                {Platform.OS === "web" ? "Upload photo" : "Take photo or choose from library"}
+              </Text>
+              <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+            </TouchableOpacity>
+          )}
+        </View>
+
         {/* Note */}
         <View style={styles.field}>
           <Text style={[styles.label, { color: colors.mutedForeground }]}>
@@ -652,6 +761,49 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   presetChipText: { fontSize: 12, fontFamily: "Inter_500Medium" },
+  // Bill photo
+  billPicker: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderRadius: 14,
+    padding: 16,
+  },
+  billPickerIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  billPickerText: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular" },
+  billPreviewWrap: { position: "relative", borderRadius: 14, overflow: "visible" },
+  billPreview: { width: "100%", height: 200, borderRadius: 14 },
+  billRemoveBtn: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  billChangeBtn: {
+    position: "absolute",
+    bottom: 8,
+    right: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  billChangeBtnText: { fontSize: 12, fontFamily: "Inter_500Medium" },
   // Save button
   saveButton: {
     paddingVertical: 16,
