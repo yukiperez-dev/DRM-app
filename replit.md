@@ -38,12 +38,24 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
   - **Categories**: Groceries, Rent & Utilities, Dining Out, Transport, Health, Entertainment, Travel, Shopping, Home, Other
   - **People**: Juanfe (blue) and Yukita (terracotta)
   - **Summary tab**: Shows who owes whom, breakdown by category and by person
+  - **Recurring expenses tab**: Define recurring monthly expenses (Rent, WiFi, Phone, Health Insurance pre-seeded). Generate them with one tap per month; skips duplicates automatically. CRUD for custom recurring entries.
 - **Planned features**: Chores, Shopping list
 
 ### Key files
 - `artifacts/home-app/context/ExpensesContext.tsx` — all expense logic, storage, conversion
+- `artifacts/home-app/context/RecurringExpensesContext.tsx` — recurring expense CRUD + generate
 - `artifacts/home-app/app/(tabs)/index.tsx` — expense list screen
+- `artifacts/home-app/app/(tabs)/recurring.tsx` — recurring expenses list + generate button
 - `artifacts/home-app/app/(tabs)/summary.tsx` — balance & category summary
 - `artifacts/home-app/app/add-expense.tsx` — add expense modal
+- `artifacts/home-app/app/add-recurring.tsx` — add/edit recurring expense modal
 - `artifacts/home-app/components/ExpenseCard.tsx` — expense row component
 - `artifacts/home-app/constants/colors.ts` — terracotta/cream palette
+
+### Database tables
+- `expenses` — all expense entries (has `recurring_expense_id` FK for generated expenses)
+- `recurring_expenses` — templates for recurring expenses (seeded with Rent, WiFi, Phone, Health Insurance)
+
+### API routes
+- `GET/POST/PUT/DELETE /api/recurring-expenses` — CRUD for recurring templates
+- `POST /api/recurring-expenses/generate` — generates expenses for a given `{year, month}`; skips already-generated ones

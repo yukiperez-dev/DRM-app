@@ -15,6 +15,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ExpensesProvider } from "@/context/ExpensesContext";
+import { RecurringExpensesProvider } from "@/context/RecurringExpensesContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -31,6 +32,10 @@ function RootLayoutNav() {
       <Stack.Screen
         name="expense/[id]"
         options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="add-recurring"
+        options={{ presentation: "modal", headerShown: false }}
       />
     </Stack>
   );
@@ -57,11 +62,13 @@ export default function RootLayout() {
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <ExpensesProvider>
-            <GestureHandlerRootView>
-              <KeyboardProvider>
-                <RootLayoutNav />
-              </KeyboardProvider>
-            </GestureHandlerRootView>
+            <RecurringExpensesProvider>
+              <GestureHandlerRootView>
+                <KeyboardProvider>
+                  <RootLayoutNav />
+                </KeyboardProvider>
+              </GestureHandlerRootView>
+            </RecurringExpensesProvider>
           </ExpensesProvider>
         </QueryClientProvider>
       </ErrorBoundary>

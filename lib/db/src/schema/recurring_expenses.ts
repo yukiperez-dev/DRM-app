@@ -2,7 +2,7 @@ import { pgTable, text, numeric, boolean, timestamp, integer } from "drizzle-orm
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const expensesTable = pgTable("expenses", {
+export const recurringExpensesTable = pgTable("recurring_expenses", {
   id: text("id").primaryKey(),
   title: text("title").notNull(),
   amount: numeric("amount", { precision: 18, scale: 4 }).notNull(),
@@ -13,19 +13,17 @@ export const expensesTable = pgTable("expenses", {
   yukitaPaidAmount: numeric("yukita_paid_amount", { precision: 18, scale: 4 }),
   splitType: text("split_type").notNull(),
   juanfeSplitPct: integer("juanfe_split_pct"),
-  isPaid: boolean("is_paid").notNull().default(false),
-  date: text("date").notNull(),
   note: text("note"),
-  billImageBase64: text("bill_image_base64"),
-  recurringExpenseId: text("recurring_expense_id"),
+  dayOfMonth: integer("day_of_month").notNull().default(1),
+  isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-export const insertExpenseSchema = createInsertSchema(expensesTable).omit({
+export const insertRecurringExpenseSchema = createInsertSchema(recurringExpensesTable).omit({
   createdAt: true,
   updatedAt: true,
 });
 
-export type InsertExpense = z.infer<typeof insertExpenseSchema>;
-export type Expense = typeof expensesTable.$inferSelect;
+export type InsertRecurringExpense = z.infer<typeof insertRecurringExpenseSchema>;
+export type RecurringExpense = typeof recurringExpensesTable.$inferSelect;

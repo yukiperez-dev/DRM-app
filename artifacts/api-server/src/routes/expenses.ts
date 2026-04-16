@@ -36,6 +36,7 @@ router.post("/expenses", async (req, res) => {
         date: body.date,
         note: body.note ?? null,
         billImageBase64: body.billImageBase64 ?? null,
+        recurringExpenseId: body.recurringExpenseId ?? null,
       })
       .returning();
     res.status(201).json(expense);

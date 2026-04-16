@@ -27,6 +27,7 @@ export interface Expense {
   date: string;
   note?: string;
   billImageBase64?: string;
+  recurringExpenseId?: string;
 }
 
 export const CATEGORIES = [
@@ -139,6 +140,7 @@ function dbRowToExpense(row: any): Expense {
     date: row.date,
     note: row.note ?? undefined,
     billImageBase64: row.billImageBase64 ?? row.bill_image_base64 ?? undefined,
+    recurringExpenseId: row.recurringExpenseId ?? row.recurring_expense_id ?? undefined,
   };
 }
 

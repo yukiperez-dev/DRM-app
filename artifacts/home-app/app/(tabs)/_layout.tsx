@@ -16,6 +16,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "list.bullet", selected: "list.bullet" }} />
         <Label>Expenses</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="recurring">
+        <Icon sf={{ default: "repeat", selected: "repeat" }} />
+        <Label>Recurring</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="summary">
         <Icon sf={{ default: "chart.pie", selected: "chart.pie.fill" }} />
         <Label>Summary</Label>
@@ -71,6 +75,18 @@ function ClassicTabLayout() {
               <SymbolView name="list.bullet" tintColor={color} size={24} />
             ) : (
               <Feather name="list" size={22} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="recurring"
+        options={{
+          title: "Recurring",
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="repeat" tintColor={color} size={24} />
+            ) : (
+              <Feather name="repeat" size={22} color={color} />
             ),
         }}
       />
