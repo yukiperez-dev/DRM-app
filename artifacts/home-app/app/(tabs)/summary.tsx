@@ -51,8 +51,26 @@ export default function SummaryScreen() {
       .sort((a, b) => b[1].total - a[1].total);
   }, [expenses, currency]);
 
+  const monthlyTotals = useMemo(() => {
+    const monthMap = new Map<string, number>();
+    for (const e of expenses) {
+      const month = new Date(e.date).toLocaleDateString("es-ES", {
+        month: "short",
+        year: "2-digit",
+      });
+      monthMap.set(
+        month,
+        (monthMap.get(month) ?? 0) + convertAmount(e.amount, e.currency, currency)
+      );
+    }
+    return Array.from(monthMap.entries())
+      .map(([month, total]) => ({ month, total }))
+      .sort((a, b) => a.month.localeCompare(b.month));
+  }, [expenses, currency]);
+
   const totalAll = categoryTotals.reduce((acc, [, v]) => acc + v.total, 0);
   const maxCategory = categoryTotals[0]?.[1].total ?? 1;
+  const maxMonth = Math.max(...monthlyTotals.map((m) => m.total), 1);
 
   const formatAmt = (amt: number) =>
     currency === "COP" ? formatCOP(amt) : formatEUR(amt);
@@ -217,6 +235,45 @@ export default function SummaryScreen() {
           </View>
         </View>
 
+        {monthlyTotals.length > 0 && (
+          <View
+            style={[
+              styles.section,
+              { borderColor: colors.border, backgroundColor: colors.card },
+            ]}
+          >
+            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+              Monthly expenses
+            </Text>
+            {monthlyTotals.map((item) => (
+              <View key={item.month} style={styles.monthRow}>
+                <Text style={[styles.monthLabel, { color: colors.foreground }]}>
+                  {item.month}
+                </Text>
+                <View
+                  style={[
+                    styles.monthBarBg,
+                    { backgroundColor: colors.secondary },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.monthBarFill,
+                      {
+                        width: `${(item.total / maxMonth) * 100}%` as any,
+                        backgroundColor: colors.primary,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text style={[styles.monthAmt, { color: colors.mutedForeground }]}>
+                  {formatAmt(item.total)}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+
         {/* Category breakdown */}
         {categoryTotals.length > 0 && (
           <View
@@ -369,6 +426,11 @@ const styles = StyleSheet.create({
   personName: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   personAmt: { fontSize: 14, fontFamily: "Inter_500Medium" },
   divider: { height: 1 },
+  monthRow: { gap: 6 },
+  monthLabel: { fontSize: 14, fontFamily: "Inter_500Medium" },
+  monthBarBg: { height: 6, borderRadius: 3, overflow: "hidden" },
+  monthBarFill: { height: "100%", borderRadius: 3 },
+  monthAmt: { fontSize: 13, fontFamily: "Inter_400Regular" },
   categoryRow: { gap: 6 },
   categoryMeta: {
     flexDirection: "row",
