@@ -9,7 +9,7 @@ const colors = {
     card: "#FFFFFF",
     cardForeground: "#2F2F2F",
 
-    primary: "#E07A2F",
+    primary: "#A78B9E",
     primaryForeground: "#FFFFFF",
 
     secondary: "#F2F0EB",
@@ -27,7 +27,7 @@ const colors = {
     border: "#E7E2DA",
     input: "#ECE7DE",
 
-    juanfe: "#E07A2F",
+    juanfe: "#A78B9E",
     yukita: "#3A7EC0",
     success: "#4CAF50",
     warning: "#F59E0B",
