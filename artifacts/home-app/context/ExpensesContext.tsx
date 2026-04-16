@@ -102,6 +102,7 @@ interface Balance {
 interface ExpensesContextType {
   expenses: Expense[];
   addExpense: (expense: Omit<Expense, "id">) => void;
+  updateExpense: (id: string, updates: Omit<Expense, "id">) => void;
   deleteExpense: (id: string) => void;
   getBalance: (currency: Currency) => Balance;
   loading: boolean;
@@ -138,6 +139,13 @@ export function ExpensesProvider({ children }: { children: React.ReactNode }) {
       const id =
         Date.now().toString() + Math.random().toString(36).substr(2, 9);
       saveExpenses([{ ...expense, id }, ...expenses]);
+    },
+    [expenses, saveExpenses]
+  );
+
+  const updateExpense = useCallback(
+    (id: string, updates: Omit<Expense, "id">) => {
+      saveExpenses(expenses.map((e) => (e.id === id ? { ...updates, id } : e)));
     },
     [expenses, saveExpenses]
   );
@@ -220,7 +228,7 @@ export function ExpensesProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ExpensesContext.Provider
-      value={{ expenses, addExpense, deleteExpense, getBalance, loading }}
+      value={{ expenses, addExpense, updateExpense, deleteExpense, getBalance, loading }}
     >
       {children}
     </ExpensesContext.Provider>

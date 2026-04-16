@@ -26,10 +26,11 @@ function RootLayoutNav() {
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen
         name="add-expense"
-        options={{
-          presentation: "modal",
-          headerShown: false,
-        }}
+        options={{ presentation: "modal", headerShown: false }}
+      />
+      <Stack.Screen
+        name="expense/[id]"
+        options={{ headerShown: false }}
       />
     </Stack>
   );
