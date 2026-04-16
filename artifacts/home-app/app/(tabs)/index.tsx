@@ -123,7 +123,7 @@ export default function ExpensesScreen() {
 
       {/* Content */}
       {activeTab === "Expenses" && (
-        <>
+        <View style={styles.expensesContent}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -213,7 +213,7 @@ export default function ExpensesScreen() {
               </View>
             }
           />
-        </>
+        </View>
       )}
 
       {activeTab === "Recurring" && (
@@ -278,6 +278,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Inter_600SemiBold",
   },
+  expensesContent: { flex: 1 },
   filterScroll: { maxHeight: 48, flexGrow: 0 },
   filterContent: {
     paddingHorizontal: 16,
