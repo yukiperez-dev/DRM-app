@@ -4,6 +4,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 
@@ -22,11 +23,11 @@ export interface Expense {
   juanfePaidAmount?: number;
   yukitaPaidAmount?: number;
   splitType: SplitType;
-  juanfeSplitPct?: number; // 0–100, used when splitType === "custom"
-  isPaid: boolean; // false = planned/pending, true = already paid
+  juanfeSplitPct?: number;
+  isPaid: boolean;
   date: string;
   note?: string;
-  billImageBase64?: string; // data URI: "data:image/jpeg;base64,..."
+  billImageBase64?: string;
 }
 
 export const CATEGORIES = [
@@ -98,6 +99,7 @@ interface Balance {
   netOwer: Person | null;
   netAmount: number;
   currency: Currency;
+  hasPending: boolean;
 }
 
 interface ExpensesContextType {
@@ -170,16 +172,17 @@ export function ExpensesProvider({ children }: { children: React.ReactNode }) {
 
   const getBalance = useCallback(
     (currency: Currency): Balance => {
-      // juanfePaid tracks what Juanfe owes Yukita (Yukita paid and Juanfe should reimburse)
-      // yukitaPaid tracks what Yukita owes Juanfe (Juanfe paid and Yukita should reimburse)
       let juanfePaid = 0;
       let yukitaPaid = 0;
+      let hasPending = false;
 
       for (const expense of expenses) {
-        if (expense.isPaid === false) continue; // pending expenses don't affect balance
+        if (expense.isPaid === false) {
+          hasPending = true;
+          continue;
+        }
         if (expense.splitType === "full") continue;
 
-        // Determine each person's share percentage (0–1)
         const juanfePct =
           expense.splitType === "custom"
             ? (expense.juanfeSplitPct ?? 50) / 100
@@ -198,12 +201,11 @@ export function ExpensesProvider({ children }: { children: React.ReactNode }) {
             currency
           );
           const total = juanfeConv + yukitaConv;
-          // Positive excess = that person overpaid → the other owes them
           const juanfeExcess = juanfeConv - total * juanfePct;
           if (juanfeExcess > 0) {
-            yukitaPaid += juanfeExcess; // Yukita owes Juanfe
+            yukitaPaid += juanfeExcess;
           } else if (juanfeExcess < 0) {
-            juanfePaid += Math.abs(juanfeExcess); // Juanfe owes Yukita
+            juanfePaid += Math.abs(juanfeExcess);
           }
         } else {
           const amountInCurrency = convertAmount(
@@ -221,11 +223,11 @@ export function ExpensesProvider({ children }: { children: React.ReactNode }) {
 
       const netAmount = Math.abs(juanfePaid - yukitaPaid);
       const netOwer: Person | null =
-        netAmount < 0.01
+        hasPending || netAmount < 0.01
           ? null
           : juanfePaid > yukitaPaid
-          ? "Juanfe"   // Juanfe owes more to Yukita → Juanfe is net ower
-          : "Yukita";  // Yukita owes more to Juanfe → Yukita is net ower
+          ? "Juanfe"
+          : "Yukita";
 
       return {
         juanfeOwes: juanfePaid,
@@ -233,6 +235,7 @@ export function ExpensesProvider({ children }: { children: React.ReactNode }) {
         netOwer,
         netAmount,
         currency,
+        hasPending,
       };
     },
     [expenses]
