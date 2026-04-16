@@ -9,6 +9,7 @@ import React, {
 
 export type Currency = "COP" | "EUR";
 export type Person = "Juanfe" | "Yukita";
+export type PaidBy = "Juanfe" | "Yukita" | "Both";
 export type SplitType = "equal" | "full";
 
 export interface Expense {
@@ -17,7 +18,9 @@ export interface Expense {
   amount: number;
   currency: Currency;
   category: string;
-  paidBy: Person;
+  paidBy: PaidBy;
+  juanfePaidAmount?: number;
+  yukitaPaidAmount?: number;
   splitType: SplitType;
   date: string;
   note?: string;
@@ -137,17 +140,40 @@ export function ExpensesProvider({ children }: { children: React.ReactNode }) {
 
   const getBalance = useCallback(
     (currency: Currency): Balance => {
+      // juanfePaid = total Juanfe owes to Yukita (Yukita paid, Juanfe should reimburse)
+      // yukitaPaid = total Yukita owes to Juanfe (Juanfe paid, Yukita should reimburse)
       let juanfePaid = 0;
       let yukitaPaid = 0;
 
       for (const expense of expenses) {
-        const amountInCurrency = convertAmount(
-          expense.amount,
-          expense.currency,
-          currency
-        );
+        if (expense.splitType !== "equal") continue;
 
-        if (expense.splitType === "equal") {
+        if (expense.paidBy === "Both") {
+          const juanfeConv = convertAmount(
+            expense.juanfePaidAmount ?? 0,
+            expense.currency,
+            currency
+          );
+          const yukitaConv = convertAmount(
+            expense.yukitaPaidAmount ?? 0,
+            expense.currency,
+            currency
+          );
+          const total = juanfeConv + yukitaConv;
+          const half = total / 2;
+          // Positive excess means that person overpaid, the other owes them
+          const juanfeExcess = juanfeConv - half;
+          if (juanfeExcess > 0) {
+            yukitaPaid += juanfeExcess; // yukita owes juanfe
+          } else if (juanfeExcess < 0) {
+            juanfePaid += Math.abs(juanfeExcess); // juanfe owes yukita
+          }
+        } else {
+          const amountInCurrency = convertAmount(
+            expense.amount,
+            expense.currency,
+            currency
+          );
           const half = amountInCurrency / 2;
           if (expense.paidBy === "Juanfe") {
             yukitaPaid += half;

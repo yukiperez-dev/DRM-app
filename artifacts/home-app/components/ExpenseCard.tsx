@@ -13,8 +13,6 @@ import {
 import {
   Expense,
   formatBoth,
-  formatCOP,
-  formatEUR,
 } from "@/context/ExpensesContext";
 import { useColors } from "@/hooks/useColors";
 
@@ -57,16 +55,15 @@ export function ExpenseCard({ expense, onDelete }: Props) {
     ]);
   };
 
-  const iconName =
-    (CATEGORY_ICONS[expense.category] as any) || "circle";
-  const isPaidByJuanfe = expense.paidBy === "Juanfe";
-  const payerColor = isPaidByJuanfe ? colors.juanfe : colors.yukita;
+  const iconName = (CATEGORY_ICONS[expense.category] as any) || "circle";
 
   const date = new Date(expense.date);
   const dateStr = date.toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
   });
+
+  const isBoth = expense.paidBy === "Both";
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -92,10 +89,38 @@ export function ExpenseCard({ expense, onDelete }: Props) {
             </Text>
           </View>
           <View style={styles.spacer} />
-          <View style={[styles.payerDot, { backgroundColor: payerColor }]} />
-          <Text style={[styles.payer, { color: payerColor }]}>
-            {expense.paidBy}
-          </Text>
+          {isBoth ? (
+            <View style={styles.bothPayer}>
+              <View style={[styles.payerDot, { backgroundColor: colors.juanfe }]} />
+              <View style={[styles.payerDotOverlap, { backgroundColor: colors.yukita }]} />
+              <Text style={[styles.payer, { color: colors.mutedForeground }]}>
+                Both
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.singlePayer}>
+              <View
+                style={[
+                  styles.payerDot,
+                  {
+                    backgroundColor:
+                      expense.paidBy === "Juanfe" ? colors.juanfe : colors.yukita,
+                  },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.payer,
+                  {
+                    color:
+                      expense.paidBy === "Juanfe" ? colors.juanfe : colors.yukita,
+                  },
+                ]}
+              >
+                {expense.paidBy}
+              </Text>
+            </View>
+          )}
           <Text style={[styles.date, { color: colors.mutedForeground }]}>
             {" · "}{dateStr}
           </Text>
@@ -168,10 +193,26 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_500Medium",
   },
   spacer: { flex: 1 },
+  singlePayer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  bothPayer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
   payerDot: {
     width: 7,
     height: 7,
     borderRadius: 3.5,
+  },
+  payerDotOverlap: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    marginLeft: -3,
   },
   payer: {
     fontSize: 12,
