@@ -17,14 +17,15 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ExpenseCard } from "@/components/ExpenseCard";
 import { RecurringSection } from "@/components/RecurringSection";
 import { SummarySection } from "@/components/SummarySection";
+import { BudgetsSection } from "@/components/BudgetsSection";
 import { CurrencyToggle } from "@/components/CurrencyToggle";
 import { CATEGORIES, Currency, useExpenses } from "@/context/ExpensesContext";
 import { useColors } from "@/hooks/useColors";
 
 const ALL = "All";
 const PENDING = "Pending";
-type Tab = "Expenses" | "Recurring" | "Summary";
-const TABS: Tab[] = ["Expenses", "Recurring", "Summary"];
+type Tab = "Expenses" | "Recurring" | "Budgets" | "Summary";
+const TABS: Tab[] = ["Expenses", "Recurring", "Budgets", "Summary"];
 
 export default function ExpensesScreen() {
   const colors = useColors();
@@ -84,7 +85,7 @@ export default function ExpensesScreen() {
             Expenses
           </Text>
         </View>
-        {activeTab === "Summary" ? (
+        {activeTab === "Summary" || activeTab === "Budgets" ? (
           <CurrencyToggle value={currency} onChange={setCurrency} />
         ) : (
           <TouchableOpacity
@@ -219,12 +220,12 @@ export default function ExpensesScreen() {
         <RecurringSection bottomPadding={bottomPadding} />
       )}
 
+      {activeTab === "Budgets" && (
+        <BudgetsSection bottomPadding={bottomPadding} currency={currency} />
+      )}
+
       {activeTab === "Summary" && (
-        <SummarySection
-          bottomPadding={bottomPadding}
-          currency={currency}
-          setCurrency={setCurrency}
-        />
+        <SummarySection bottomPadding={bottomPadding} currency={currency} />
       )}
     </View>
   );
