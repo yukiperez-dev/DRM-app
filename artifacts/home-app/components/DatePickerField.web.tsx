@@ -1,6 +1,14 @@
 import { Feather } from "@expo/vector-icons";
 import React, { useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Dimensions,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 import { useColors } from "@/hooks/useColors";
 
@@ -48,7 +56,8 @@ function buildCalendarDays(year: number, month: number): (number | null)[] {
 export default function DatePickerField({ value, onChange }: DatePickerFieldProps) {
   const colors = useColors();
   const [open, setOpen] = useState(false);
-  const containerRef = useRef<View>(null);
+  const fieldRef = useRef<View>(null);
+  const [fieldLayout, setFieldLayout] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
   const selected = value ? isoToDate(value) : null;
   const today = new Date();
@@ -58,15 +67,19 @@ export default function DatePickerField({ value, onChange }: DatePickerFieldProp
   const displayValue = isoToDisplay(value);
   const cells = buildCalendarDays(viewYear, viewMonth);
 
-  useEffect(() => {
-    if (open && selected) {
-      setViewYear(selected.getFullYear());
-      setViewMonth(selected.getMonth());
-    } else if (open) {
-      setViewYear(today.getFullYear());
-      setViewMonth(today.getMonth());
-    }
-  }, [open]);
+  const openCalendar = () => {
+    fieldRef.current?.measureInWindow((x, y, width, height) => {
+      setFieldLayout({ x, y, width, height });
+      if (selected) {
+        setViewYear(selected.getFullYear());
+        setViewMonth(selected.getMonth());
+      } else {
+        setViewYear(today.getFullYear());
+        setViewMonth(today.getMonth());
+      }
+      setOpen(true);
+    });
+  };
 
   const prevMonth = () => {
     if (viewMonth === 0) {
@@ -109,14 +122,24 @@ export default function DatePickerField({ value, onChange }: DatePickerFieldProp
     );
   };
 
+  const screenHeight = Dimensions.get("window").height;
+  const calendarHeight = 320;
+  const calendarTop = fieldLayout
+    ? fieldLayout.y + fieldLayout.height + 4
+    : 0;
+  const adjustedTop =
+    calendarTop + calendarHeight > screenHeight
+      ? (fieldLayout ? fieldLayout.y - calendarHeight - 4 : 0)
+      : calendarTop;
+
   return (
-    <View style={{ position: "relative" as any }}>
+    <View ref={fieldRef}>
       <Pressable
         style={[
           styles.fieldWrap,
           { backgroundColor: colors.card, borderColor: open ? colors.primary : colors.border },
         ]}
-        onPress={() => setOpen((v) => !v)}
+        onPress={openCalendar}
       >
         <Text
           style={[
@@ -129,32 +152,36 @@ export default function DatePickerField({ value, onChange }: DatePickerFieldProp
         <Feather name="calendar" size={16} color={open ? colors.primary : colors.mutedForeground} />
       </Pressable>
 
-      {open && (
-        <>
+      <Modal
+        visible={open}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOpen(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setOpen(false)}>
           <Pressable
-            style={styles.backdrop}
-            onPress={() => setOpen(false)}
-          />
-          <View
             style={[
               styles.calendar,
               {
                 backgroundColor: colors.card,
                 borderColor: colors.border,
-                shadowColor: "#000",
+                top: adjustedTop,
+                left: fieldLayout?.x ?? 0,
+                width: fieldLayout?.width ?? 300,
               },
             ]}
+            onPress={(e) => e.stopPropagation()}
           >
             <View style={styles.calHeader}>
-              <Pressable onPress={prevMonth} style={styles.navBtn}>
-                <Feather name="chevron-left" size={18} color={colors.foreground} />
-              </Pressable>
+              <TouchableOpacity onPress={prevMonth} style={styles.navBtn} hitSlop={8}>
+                <Feather name="chevron-left" size={20} color={colors.foreground} />
+              </TouchableOpacity>
               <Text style={[styles.monthLabel, { color: colors.foreground }]}>
                 {MONTH_NAMES[viewMonth]} {viewYear}
               </Text>
-              <Pressable onPress={nextMonth} style={styles.navBtn}>
-                <Feather name="chevron-right" size={18} color={colors.foreground} />
-              </Pressable>
+              <TouchableOpacity onPress={nextMonth} style={styles.navBtn} hitSlop={8}>
+                <Feather name="chevron-right" size={20} color={colors.foreground} />
+              </TouchableOpacity>
             </View>
 
             <View style={styles.dayNamesRow}>
@@ -173,34 +200,42 @@ export default function DatePickerField({ value, onChange }: DatePickerFieldProp
                 const sel = isSelected(day);
                 const tod = isToday(day);
                 return (
-                  <Pressable
-                    key={`d-${day}`}
+                  <TouchableOpacity
+                    key={`d-${day}-${viewMonth}-${viewYear}`}
                     style={[
                       styles.dayCell,
                       sel && { backgroundColor: colors.primary, borderRadius: 8 },
                       !sel && tod && {
-                        borderWidth: 1,
+                        borderWidth: 1.5,
                         borderColor: colors.primary,
                         borderRadius: 8,
                       },
                     ]}
                     onPress={() => selectDay(day)}
+                    activeOpacity={0.7}
                   >
                     <Text
                       style={[
                         styles.dayText,
-                        { color: sel ? "#fff" : tod ? colors.primary : colors.foreground },
+                        {
+                          color: sel
+                            ? "#fff"
+                            : tod
+                            ? colors.primary
+                            : colors.foreground,
+                          fontFamily: sel ? "Inter_600SemiBold" : "Inter_400Regular",
+                        },
                       ]}
                     >
                       {day}
                     </Text>
-                  </Pressable>
+                  </TouchableOpacity>
                 );
               })}
             </View>
-          </View>
-        </>
-      )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -219,37 +254,30 @@ const styles = StyleSheet.create({
     fontSize: 15,
     flex: 1,
   },
-  backdrop: {
-    position: "fixed" as any,
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 99,
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.2)",
   },
   calendar: {
-    position: "absolute" as any,
-    top: "100%" as any,
-    left: 0,
-    right: 0,
-    zIndex: 100,
+    position: "absolute",
     borderWidth: 1,
     borderRadius: 14,
     padding: 12,
-    marginTop: 4,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 10,
   },
   calHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 8,
+    marginBottom: 10,
+    paddingHorizontal: 4,
   },
   navBtn: {
-    padding: 6,
+    padding: 4,
   },
   monthLabel: {
     fontSize: 15,
@@ -278,6 +306,5 @@ const styles = StyleSheet.create({
   },
   dayText: {
     fontSize: 13,
-    fontFamily: "Inter_400Regular",
   },
 });
