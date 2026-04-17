@@ -17,6 +17,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ExpensesProvider } from "@/context/ExpensesContext";
 import { RecurringExpensesProvider } from "@/context/RecurringExpensesContext";
 import { BudgetsProvider } from "@/context/BudgetsContext";
+import { GroceryProvider, TodoProvider } from "@/context/ChecklistContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -65,11 +66,15 @@ export default function RootLayout() {
           <ExpensesProvider>
             <BudgetsProvider>
               <RecurringExpensesProvider>
-                <GestureHandlerRootView>
-                  <KeyboardProvider>
-                    <RootLayoutNav />
-                  </KeyboardProvider>
-                </GestureHandlerRootView>
+                <TodoProvider>
+                  <GroceryProvider>
+                    <GestureHandlerRootView>
+                      <KeyboardProvider>
+                        <RootLayoutNav />
+                      </KeyboardProvider>
+                    </GestureHandlerRootView>
+                  </GroceryProvider>
+                </TodoProvider>
               </RecurringExpensesProvider>
             </BudgetsProvider>
           </ExpensesProvider>
