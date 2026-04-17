@@ -12,13 +12,15 @@ export interface ChecklistItem {
   text: string;
   done: boolean;
   createdAt: number;
+  category?: string;
 }
 
 interface ChecklistContextType {
   items: ChecklistItem[];
-  addItem: (text: string) => Promise<void>;
+  addItem: (text: string, opts?: { category?: string }) => Promise<void>;
   toggleItem: (id: string) => Promise<void>;
   updateItem: (id: string, text: string) => Promise<void>;
+  setItemCategory: (id: string, category: string) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
   clearCompleted: () => Promise<void>;
   loading: boolean;
@@ -60,7 +62,7 @@ function createChecklistContext(storageKey: string) {
     }, []);
 
     const addItem = useCallback(
-      async (text: string) => {
+      async (text: string, opts?: { category?: string }) => {
         const trimmed = text.trim();
         if (!trimmed) return;
         const item: ChecklistItem = {
@@ -68,8 +70,18 @@ function createChecklistContext(storageKey: string) {
           text: trimmed,
           done: false,
           createdAt: Date.now(),
+          category: opts?.category,
         };
         await persist([item, ...items]);
+      },
+      [items, persist]
+    );
+
+    const setItemCategory = useCallback(
+      async (id: string, category: string) => {
+        await persist(
+          items.map((it) => (it.id === id ? { ...it, category } : it))
+        );
       },
       [items, persist]
     );
@@ -112,6 +124,7 @@ function createChecklistContext(storageKey: string) {
           addItem,
           toggleItem,
           updateItem,
+          setItemCategory,
           deleteItem,
           clearCompleted,
           loading,

@@ -2,7 +2,7 @@ import React from "react";
 import { Platform, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { ChecklistSection } from "@/components/ChecklistSection";
+import { GroceryChecklist } from "@/components/GroceryChecklist";
 import { useGrocery } from "@/context/ChecklistContext";
 import { useColors } from "@/hooks/useColors";
 
@@ -36,19 +36,16 @@ export default function GroceryScreen() {
         </View>
       </View>
 
-      <ChecklistSection
+      <GroceryChecklist
         bottomPadding={bottomPadding}
         items={ctx.items}
         loading={ctx.loading}
         addItem={ctx.addItem}
         toggleItem={ctx.toggleItem}
         updateItem={ctx.updateItem}
+        setItemCategory={ctx.setItemCategory}
         deleteItem={ctx.deleteItem}
         clearCompleted={ctx.clearCompleted}
-        placeholder="Add an item to buy…"
-        emptyIcon="shopping-cart"
-        emptyTitle="Grocery list is empty"
-        emptyText="Add items you need to buy for the house"
       />
     </View>
   );
