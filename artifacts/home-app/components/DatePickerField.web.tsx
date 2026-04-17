@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import { Pressable, StyleSheet, Text } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
@@ -19,6 +19,7 @@ function isoToDisplay(iso: string): string {
 export default function DatePickerField({ value, onChange }: DatePickerFieldProps) {
   const colors = useColors();
   const inputRef = useRef<any>(null);
+  const [showNativePicker, setShowNativePicker] = useState(false);
 
   const displayValue = isoToDisplay(value);
 
@@ -29,10 +30,11 @@ export default function DatePickerField({ value, onChange }: DatePickerFieldProp
         { backgroundColor: colors.card, borderColor: colors.border },
       ]}
       onPress={() => {
-        if (inputRef.current) {
-          inputRef.current.showPicker?.();
-          inputRef.current.click();
-        }
+        setShowNativePicker(true);
+        requestAnimationFrame(() => {
+          inputRef.current?.click();
+          setShowNativePicker(false);
+        });
       }}
     >
       <Text
@@ -47,6 +49,7 @@ export default function DatePickerField({ value, onChange }: DatePickerFieldProp
       <input
         ref={inputRef}
         type="date"
+        tabIndex={showNativePicker ? 0 : -1}
         value={value}
         onChange={(e) => {
           if (e.target.value) onChange(e.target.value);
