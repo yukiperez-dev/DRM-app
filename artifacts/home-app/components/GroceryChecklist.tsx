@@ -7,7 +7,6 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  SectionList,
   StyleSheet,
   Text,
   TextInput,
@@ -40,10 +39,6 @@ function normalizeCategory(cat: string | undefined): string {
   return SECTION_KEYS.includes(cat) ? cat : "Other";
 }
 
-function iconFor(cat: string): keyof typeof Feather.glyphMap {
-  return GROCERY_SECTIONS.find((s) => s.key === cat)?.icon ?? "more-horizontal";
-}
-
 interface Props {
   bottomPadding: number;
   items: ChecklistItem[];
@@ -68,37 +63,36 @@ export function GroceryChecklist({
   clearCompleted,
 }: Props) {
   const colors = useColors();
-  const [draft, setDraft] = useState("");
-  const [draftCategory, setDraftCategory] = useState<string>("Produce");
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [moveItem, setMoveItem] = useState<ChecklistItem | null>(null);
 
   const completedCount = items.filter((i) => i.done).length;
 
-  const sections = useMemo(() => {
-    const buckets: Record<string, ChecklistItem[]> = {};
-    for (const key of SECTION_KEYS) buckets[key] = [];
+  const buckets = useMemo(() => {
+    const map: Record<string, ChecklistItem[]> = {};
+    for (const key of SECTION_KEYS) map[key] = [];
     for (const item of items) {
       const key = normalizeCategory(item.category);
-      buckets[key].push(item);
+      map[key].push(item);
     }
-    return GROCERY_SECTIONS.filter((s) => buckets[s.key].length > 0).map(
-      (s) => ({
-        title: s.key,
-        icon: s.icon,
-        data: buckets[s.key],
-      })
-    );
+    return map;
   }, [items]);
 
-  const handleAdd = async () => {
-    if (!draft.trim()) return;
+  const setDraft = (section: string, value: string) => {
+    setDrafts((prev) => ({ ...prev, [section]: value }));
+  };
+
+  const handleAddTo = async (section: string) => {
+    const value = (drafts[section] ?? "").trim();
+    if (!value) return;
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    await addItem(draft, { category: draftCategory });
-    setDraft("");
+    await addItem(value, { category: section });
+    setDraft(section, "");
   };
 
   const handleToggle = async (id: string) => {
@@ -183,82 +177,12 @@ export function GroceryChecklist({
     }
   };
 
+  const toggleCollapsed = (section: string) => {
+    setCollapsed((prev) => ({ ...prev, [section]: !prev[section] }));
+  };
+
   return (
     <View style={styles.container}>
-      <View
-        style={[
-          styles.inputRow,
-          { backgroundColor: colors.card, borderColor: colors.border },
-        ]}
-      >
-        <TextInput
-          value={draft}
-          onChangeText={setDraft}
-          placeholder="Add an item to buy…"
-          placeholderTextColor={colors.mutedForeground}
-          style={[styles.input, { color: colors.foreground }]}
-          returnKeyType="done"
-          onSubmitEditing={handleAdd}
-          blurOnSubmit={false}
-        />
-        <TouchableOpacity
-          onPress={handleAdd}
-          disabled={!draft.trim()}
-          style={[
-            styles.addBtn,
-            {
-              backgroundColor: draft.trim()
-                ? colors.primary
-                : colors.secondary,
-            },
-          ]}
-          activeOpacity={0.85}
-        >
-          <Feather
-            name="plus"
-            size={18}
-            color={draft.trim() ? "#fff" : colors.mutedForeground}
-          />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipRow}
-      >
-        {GROCERY_SECTIONS.map((s) => {
-          const isSel = draftCategory === s.key;
-          return (
-            <Pressable
-              key={s.key}
-              onPress={() => setDraftCategory(s.key)}
-              style={[
-                styles.chip,
-                {
-                  backgroundColor: isSel ? colors.primary : colors.card,
-                  borderColor: isSel ? colors.primary : colors.border,
-                },
-              ]}
-            >
-              <Feather
-                name={s.icon}
-                size={12}
-                color={isSel ? "#fff" : colors.mutedForeground}
-              />
-              <Text
-                style={[
-                  styles.chipText,
-                  { color: isSel ? "#fff" : colors.mutedForeground },
-                ]}
-              >
-                {s.key}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-
       {completedCount > 0 && (
         <View style={styles.metaRow}>
           <Text style={[styles.metaText, { color: colors.mutedForeground }]}>
@@ -272,120 +196,214 @@ export function GroceryChecklist({
         </View>
       )}
 
-      <SectionList
-        sections={sections}
-        keyExtractor={(item) => item.id}
-        stickySectionHeadersEnabled={false}
-        renderSectionHeader={({ section }) => (
-          <View style={styles.sectionHeader}>
-            <Feather
-              name={(section as any).icon}
-              size={14}
-              color={colors.primary}
-            />
-            <Text
-              style={[styles.sectionHeaderText, { color: colors.foreground }]}
-            >
-              {section.title}
-            </Text>
-            <Text
-              style={[
-                styles.sectionCount,
-                { color: colors.mutedForeground },
-              ]}
-            >
-              {section.data.length}
-            </Text>
-          </View>
-        )}
-        renderItem={({ item }) => (
-          <Pressable
-            onLongPress={() => startEdit(item)}
-            onPress={() => handleToggle(item.id)}
-            style={[
-              styles.item,
-              { backgroundColor: colors.card, borderColor: colors.border },
-            ]}
-          >
-            <View
-              style={[
-                styles.checkbox,
-                {
-                  borderColor: item.done ? colors.primary : colors.border,
-                  backgroundColor: item.done ? colors.primary : "transparent",
-                },
-              ]}
-            >
-              {item.done && <Feather name="check" size={14} color="#fff" />}
-            </View>
-            {editingId === item.id ? (
-              <TextInput
-                value={editText}
-                onChangeText={setEditText}
-                style={[styles.itemText, { color: colors.foreground, flex: 1 }]}
-                autoFocus
-                onBlur={commitEdit}
-                onSubmitEditing={commitEdit}
-                returnKeyType="done"
-              />
-            ) : (
-              <Text
-                style={[
-                  styles.itemText,
-                  {
-                    color: item.done
-                      ? colors.mutedForeground
-                      : colors.foreground,
-                    textDecorationLine: item.done ? "line-through" : "none",
-                  },
-                ]}
-              >
-                {item.text}
-              </Text>
-            )}
-            <TouchableOpacity
-              onPress={() => setMoveItem(item)}
-              hitSlop={8}
-              style={styles.iconBtn}
-            >
-              <Feather
-                name="folder"
-                size={15}
-                color={colors.mutedForeground}
-              />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => handleDelete(item)}
-              hitSlop={10}
-              style={styles.iconBtn}
-            >
-              <Feather name="x" size={16} color={colors.mutedForeground} />
-            </TouchableOpacity>
-          </Pressable>
-        )}
+      <ScrollView
         contentContainerStyle={[styles.list, { paddingBottom: bottomPadding }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        ListEmptyComponent={
-          loading ? null : (
-            <View style={styles.empty}>
-              <Feather
-                name="shopping-cart"
-                size={48}
-                color={colors.mutedForeground}
-              />
-              <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-                Grocery list is empty
-              </Text>
-              <Text
-                style={[styles.emptyText, { color: colors.mutedForeground }]}
+      >
+        {GROCERY_SECTIONS.map((section) => {
+          const sectionItems = buckets[section.key];
+          const isCollapsed = collapsed[section.key] ?? false;
+          const draft = drafts[section.key] ?? "";
+
+          return (
+            <View
+              key={section.key}
+              style={[
+                styles.sectionCard,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              <Pressable
+                onPress={() => toggleCollapsed(section.key)}
+                style={styles.sectionHeader}
               >
-                Pick a section above and add items you need to buy
-              </Text>
+                <View
+                  style={[
+                    styles.sectionIcon,
+                    { backgroundColor: colors.secondary },
+                  ]}
+                >
+                  <Feather
+                    name={section.icon}
+                    size={14}
+                    color={colors.primary}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.sectionHeaderText,
+                    { color: colors.foreground },
+                  ]}
+                >
+                  {section.key}
+                </Text>
+                {sectionItems.length > 0 && (
+                  <View
+                    style={[
+                      styles.sectionBadge,
+                      { backgroundColor: colors.secondary },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.sectionBadgeText,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
+                      {sectionItems.length}
+                    </Text>
+                  </View>
+                )}
+                <View style={styles.flexSpacer} />
+                <Feather
+                  name={isCollapsed ? "chevron-down" : "chevron-up"}
+                  size={18}
+                  color={colors.mutedForeground}
+                />
+              </Pressable>
+
+              {!isCollapsed && (
+                <View style={styles.sectionBody}>
+                  {sectionItems.map((item) => (
+                    <Pressable
+                      key={item.id}
+                      onLongPress={() => startEdit(item)}
+                      onPress={() => handleToggle(item.id)}
+                      style={[
+                        styles.item,
+                        {
+                          backgroundColor: colors.background,
+                          borderColor: colors.border,
+                        },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.checkbox,
+                          {
+                            borderColor: item.done
+                              ? colors.primary
+                              : colors.border,
+                            backgroundColor: item.done
+                              ? colors.primary
+                              : "transparent",
+                          },
+                        ]}
+                      >
+                        {item.done && (
+                          <Feather name="check" size={14} color="#fff" />
+                        )}
+                      </View>
+                      {editingId === item.id ? (
+                        <TextInput
+                          value={editText}
+                          onChangeText={setEditText}
+                          style={[
+                            styles.itemText,
+                            { color: colors.foreground, flex: 1 },
+                          ]}
+                          autoFocus
+                          onBlur={commitEdit}
+                          onSubmitEditing={commitEdit}
+                          returnKeyType="done"
+                        />
+                      ) : (
+                        <Text
+                          style={[
+                            styles.itemText,
+                            {
+                              color: item.done
+                                ? colors.mutedForeground
+                                : colors.foreground,
+                              textDecorationLine: item.done
+                                ? "line-through"
+                                : "none",
+                            },
+                          ]}
+                        >
+                          {item.text}
+                        </Text>
+                      )}
+                      <TouchableOpacity
+                        onPress={() => setMoveItem(item)}
+                        hitSlop={8}
+                        style={styles.iconBtn}
+                      >
+                        <Feather
+                          name="folder"
+                          size={15}
+                          color={colors.mutedForeground}
+                        />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => handleDelete(item)}
+                        hitSlop={10}
+                        style={styles.iconBtn}
+                      >
+                        <Feather
+                          name="x"
+                          size={16}
+                          color={colors.mutedForeground}
+                        />
+                      </TouchableOpacity>
+                    </Pressable>
+                  ))}
+
+                  <View
+                    style={[
+                      styles.addRow,
+                      {
+                        backgroundColor: colors.background,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <Feather
+                      name="plus"
+                      size={16}
+                      color={colors.mutedForeground}
+                    />
+                    <TextInput
+                      value={draft}
+                      onChangeText={(t) => setDraft(section.key, t)}
+                      placeholder={`Add to ${section.key}…`}
+                      placeholderTextColor={colors.mutedForeground}
+                      style={[
+                        styles.addInput,
+                        { color: colors.foreground },
+                      ]}
+                      returnKeyType="done"
+                      onSubmitEditing={() => handleAddTo(section.key)}
+                      blurOnSubmit={false}
+                    />
+                    {draft.trim() ? (
+                      <TouchableOpacity
+                        onPress={() => handleAddTo(section.key)}
+                        style={[
+                          styles.addConfirm,
+                          { backgroundColor: colors.primary },
+                        ]}
+                      >
+                        <Feather name="check" size={14} color="#fff" />
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                </View>
+              )}
             </View>
-          )
-        }
-      />
+          );
+        })}
+
+        {!loading && items.length === 0 && (
+          <Text style={[styles.hint, { color: colors.mutedForeground }]}>
+            Tap any section above to add items
+          </Text>
+        )}
+      </ScrollView>
 
       <Modal
         visible={moveItem !== null}
@@ -428,7 +446,9 @@ export function GroceryChecklist({
                     <Feather
                       name={s.icon}
                       size={13}
-                      color={isCurrent ? colors.primary : colors.mutedForeground}
+                      color={
+                        isCurrent ? colors.primary : colors.mutedForeground
+                      }
                     />
                     <Text
                       style={[
@@ -455,86 +475,68 @@ export function GroceryChecklist({
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  inputRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginHorizontal: 16,
-    marginTop: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  input: {
-    flex: 1,
-    fontSize: 15,
-    fontFamily: "Inter_400Regular",
-    paddingVertical: 8,
-  },
-  addBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  chipRow: {
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 4,
-    gap: 6,
-  },
-  chip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  chipText: {
-    fontSize: 12,
-    fontFamily: "Inter_500Medium",
-  },
   metaRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingTop: 10,
+    paddingBottom: 4,
   },
   metaText: { fontSize: 12, fontFamily: "Inter_400Regular" },
   clearText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
-  list: { paddingHorizontal: 16, paddingTop: 6 },
+  list: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    gap: 10,
+  },
+  sectionCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingTop: 14,
-    paddingBottom: 6,
-    paddingHorizontal: 4,
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  sectionIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
   },
   sectionHeaderText: {
-    fontSize: 13,
-    fontFamily: "Inter_700Bold",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
   },
-  sectionCount: {
-    fontSize: 12,
-    fontFamily: "Inter_500Medium",
-    marginLeft: 2,
+  sectionBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    minWidth: 22,
+    alignItems: "center",
+  },
+  sectionBadgeText: {
+    fontSize: 11,
+    fontFamily: "Inter_600SemiBold",
+  },
+  flexSpacer: { flex: 1 },
+  sectionBody: {
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    gap: 8,
   },
   item: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    padding: 14,
-    borderRadius: 14,
+    padding: 12,
+    borderRadius: 12,
     borderWidth: 1,
-    marginBottom: 8,
   },
   checkbox: {
     width: 22,
@@ -549,21 +551,35 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: "Inter_500Medium",
   },
-  iconBtn: {
-    padding: 4,
-  },
-  empty: {
+  iconBtn: { padding: 4 },
+  addRow: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    paddingTop: 80,
-    gap: 12,
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderStyle: "dashed",
   },
-  emptyTitle: { fontSize: 18, fontFamily: "Inter_600SemiBold" },
-  emptyText: {
+  addInput: {
+    flex: 1,
     fontSize: 14,
     fontFamily: "Inter_400Regular",
+    paddingVertical: 8,
+  },
+  addConfirm: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  hint: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
     textAlign: "center",
-    maxWidth: 260,
+    paddingTop: 24,
   },
   modalBackdrop: {
     flex: 1,
