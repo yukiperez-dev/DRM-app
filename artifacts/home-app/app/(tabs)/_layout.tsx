@@ -22,7 +22,7 @@ function NativeTabLayout() {
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="grocery">
         <Icon sf={{ default: "cart", selected: "cart.fill" }} />
-        <Label>Grocery</Label>
+        <Label>Groceries</Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );
@@ -93,7 +93,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="grocery"
         options={{
-          title: "Grocery",
+          title: "Groceries",
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="cart" tintColor={color} size={24} />
