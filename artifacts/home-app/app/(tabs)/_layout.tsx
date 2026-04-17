@@ -16,6 +16,14 @@ function NativeTabLayout() {
         <Icon sf={{ default: "list.bullet", selected: "list.bullet" }} />
         <Label>Expenses</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="todo">
+        <Icon sf={{ default: "checkmark.circle", selected: "checkmark.circle.fill" }} />
+        <Label>To do</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="grocery">
+        <Icon sf={{ default: "cart", selected: "cart.fill" }} />
+        <Label>Grocery</Label>
+      </NativeTabs.Trigger>
     </NativeTabs>
   );
 }
@@ -67,6 +75,30 @@ function ClassicTabLayout() {
               <SymbolView name="list.bullet" tintColor={color} size={24} />
             ) : (
               <Feather name="list" size={22} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="todo"
+        options={{
+          title: "To do",
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="checkmark.circle" tintColor={color} size={24} />
+            ) : (
+              <Feather name="check-square" size={22} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="grocery"
+        options={{
+          title: "Grocery",
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="cart" tintColor={color} size={24} />
+            ) : (
+              <Feather name="shopping-cart" size={22} color={color} />
             ),
         }}
       />

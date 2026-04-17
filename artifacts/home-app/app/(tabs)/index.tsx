@@ -18,29 +18,14 @@ import { ExpenseCard } from "@/components/ExpenseCard";
 import { RecurringSection } from "@/components/RecurringSection";
 import { SummarySection } from "@/components/SummarySection";
 import { BudgetsSection } from "@/components/BudgetsSection";
-import { TodoSection } from "@/components/TodoSection";
-import { GroceryListSection } from "@/components/GroceryListSection";
 import { CurrencyToggle } from "@/components/CurrencyToggle";
 import { CATEGORIES, Currency, useExpenses } from "@/context/ExpensesContext";
 import { useColors } from "@/hooks/useColors";
 
 const ALL = "All";
 const PENDING = "Pending";
-type Tab =
-  | "Expenses"
-  | "Recurring"
-  | "Budgets"
-  | "Summary"
-  | "To do"
-  | "Grocery list";
-const TABS: Tab[] = [
-  "Expenses",
-  "Recurring",
-  "Budgets",
-  "Summary",
-  "To do",
-  "Grocery list",
-];
+type Tab = "Expenses" | "Recurring" | "Budgets" | "Summary";
+const TABS: Tab[] = ["Expenses", "Recurring", "Budgets", "Summary"];
 
 export default function ExpensesScreen() {
   const colors = useColors();
@@ -78,7 +63,6 @@ export default function ExpensesScreen() {
   const bottomPadding = Platform.OS === "web" ? 100 : insets.bottom + 100;
 
   const showAddBtn = activeTab === "Expenses" || activeTab === "Recurring";
-  const showCurrencyToggle = activeTab === "Summary" || activeTab === "Budgets";
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -101,9 +85,9 @@ export default function ExpensesScreen() {
             Expenses
           </Text>
         </View>
-        {showCurrencyToggle ? (
+        {activeTab === "Summary" || activeTab === "Budgets" ? (
           <CurrencyToggle value={currency} onChange={setCurrency} />
-        ) : showAddBtn ? (
+        ) : (
           <TouchableOpacity
             style={[styles.addBtn, { backgroundColor: colors.primary }]}
             onPress={handleAdd}
@@ -111,7 +95,7 @@ export default function ExpensesScreen() {
           >
             <Feather name="plus" size={22} color="#fff" />
           </TouchableOpacity>
-        ) : null}
+        )}
       </View>
 
       {/* Segmented control */}
@@ -242,14 +226,6 @@ export default function ExpensesScreen() {
 
       {activeTab === "Summary" && (
         <SummarySection bottomPadding={bottomPadding} currency={currency} />
-      )}
-
-      {activeTab === "To do" && (
-        <TodoSection bottomPadding={bottomPadding} />
-      )}
-
-      {activeTab === "Grocery list" && (
-        <GroceryListSection bottomPadding={bottomPadding} />
       )}
     </View>
   );
