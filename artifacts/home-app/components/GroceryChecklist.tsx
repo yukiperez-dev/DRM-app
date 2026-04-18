@@ -364,6 +364,20 @@ export function GroceryChecklist({
                         },
                       ]}
                     >
+                      <TouchableOpacity
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          setMoveItem(item);
+                        }}
+                        hitSlop={8}
+                        style={styles.dotsBtn}
+                      >
+                        <Feather
+                          name="more-vertical"
+                          size={15}
+                          color={colors.mutedForeground}
+                        />
+                      </TouchableOpacity>
                       <View
                         style={[
                           styles.checkbox,
@@ -411,17 +425,6 @@ export function GroceryChecklist({
                           {item.text}
                         </Text>
                       )}
-                      <TouchableOpacity
-                        onPress={() => setMoveItem(item)}
-                        hitSlop={8}
-                        style={styles.iconBtn}
-                      >
-                        <Feather
-                          name="folder"
-                          size={15}
-                          color={colors.mutedForeground}
-                        />
-                      </TouchableOpacity>
                       <TouchableOpacity
                         onPress={() => handleDelete(item)}
                         hitSlop={10}
@@ -635,6 +638,7 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_500Medium",
   },
   iconBtn: { padding: 4 },
+  dotsBtn: { padding: 4, marginRight: 4 },
   addRow: {
     flexDirection: "row",
     alignItems: "center",
