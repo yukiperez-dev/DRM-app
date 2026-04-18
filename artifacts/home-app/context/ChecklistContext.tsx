@@ -13,14 +13,16 @@ export interface ChecklistItem {
   done: boolean;
   createdAt: number;
   category?: string;
+  dueDate?: string;
 }
 
 interface ChecklistContextType {
   items: ChecklistItem[];
-  addItem: (text: string, opts?: { category?: string }) => Promise<void>;
+  addItem: (text: string, opts?: { category?: string; dueDate?: string }) => Promise<void>;
   toggleItem: (id: string) => Promise<void>;
   updateItem: (id: string, text: string) => Promise<void>;
   setItemCategory: (id: string, category: string) => Promise<void>;
+  setItemDueDate: (id: string, dueDate: string | undefined) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
   clearCompleted: () => Promise<void>;
   loading: boolean;
@@ -62,7 +64,7 @@ function createChecklistContext(storageKey: string) {
     }, []);
 
     const addItem = useCallback(
-      async (text: string, opts?: { category?: string }) => {
+      async (text: string, opts?: { category?: string; dueDate?: string }) => {
         const trimmed = text.trim();
         if (!trimmed) return;
         const item: ChecklistItem = {
@@ -71,8 +73,18 @@ function createChecklistContext(storageKey: string) {
           done: false,
           createdAt: Date.now(),
           category: opts?.category,
+          dueDate: opts?.dueDate,
         };
         await persist([item, ...items]);
+      },
+      [items, persist]
+    );
+
+    const setItemDueDate = useCallback(
+      async (id: string, dueDate: string | undefined) => {
+        await persist(
+          items.map((it) => (it.id === id ? { ...it, dueDate } : it))
+        );
       },
       [items, persist]
     );
@@ -125,6 +137,7 @@ function createChecklistContext(storageKey: string) {
           toggleItem,
           updateItem,
           setItemCategory,
+          setItemDueDate,
           deleteItem,
           clearCompleted,
           loading,

@@ -2,7 +2,7 @@ import React from "react";
 import { Platform, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { ChecklistSection } from "@/components/ChecklistSection";
+import { TodoChecklistSection } from "@/components/TodoChecklistSection";
 import { useTodo } from "@/context/ChecklistContext";
 import { useColors } from "@/hooks/useColors";
 
@@ -36,16 +36,17 @@ export default function TodoScreen() {
         </View>
       </View>
 
-      <ChecklistSection
+      <TodoChecklistSection
         bottomPadding={bottomPadding}
         items={ctx.items}
         loading={ctx.loading}
         addItem={ctx.addItem}
         toggleItem={ctx.toggleItem}
         updateItem={ctx.updateItem}
+        setItemDueDate={ctx.setItemDueDate}
         deleteItem={ctx.deleteItem}
         clearCompleted={ctx.clearCompleted}
-        placeholder="Add a chore for the week…"
+        placeholder="Add a task…"
         emptyIcon="check-square"
         emptyTitle="Nothing to do"
         emptyText="Add chores or tasks for the week or month"
