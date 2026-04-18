@@ -13,6 +13,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import DraggableFlatList, {
+  RenderItemParams,
+  ScaleDecorator,
+} from "react-native-draggable-flatlist";
 
 import { ChecklistItem } from "@/context/ChecklistContext";
 import { useColors } from "@/hooks/useColors";
@@ -38,6 +42,17 @@ function normalizeCategory(cat: string | undefined): string {
   if (!cat) return "Other";
   return SECTION_KEYS.includes(cat) ? cat : "Other";
 }
+
+type Row =
+  | {
+      type: "header";
+      key: string;
+      sectionKey: string;
+      icon: keyof typeof Feather.glyphMap;
+    }
+  | { type: "item"; key: string; item: ChecklistItem }
+  | { type: "adder"; key: string; sectionKey: string }
+  | { type: "empty"; key: string };
 
 interface Props {
   bottomPadding: number;
@@ -96,6 +111,33 @@ export function GroceryChecklist({
     }
     return map;
   }, [items]);
+
+  const flatData = useMemo<Row[]>(() => {
+    const rows: Row[] = [];
+    for (const section of GROCERY_SECTIONS) {
+      rows.push({
+        type: "header",
+        key: `header-${section.key}`,
+        sectionKey: section.key,
+        icon: section.icon,
+      });
+      const isCollapsed = collapsed[section.key] ?? false;
+      if (!isCollapsed) {
+        for (const item of buckets[section.key]) {
+          rows.push({ type: "item", key: `item-${item.id}`, item });
+        }
+        rows.push({
+          type: "adder",
+          key: `adder-${section.key}`,
+          sectionKey: section.key,
+        });
+      }
+    }
+    if (!loading && items.length === 0) {
+      rows.push({ type: "empty", key: "empty" });
+    }
+    return rows;
+  }, [buckets, collapsed, loading, items.length]);
 
   const setDraft = (section: string, value: string) => {
     setDrafts((prev) => ({ ...prev, [section]: value }));
@@ -197,11 +239,238 @@ export function GroceryChecklist({
     setCollapsed((prev) => ({ ...prev, [section]: !prev[section] }));
   };
 
-  return (
-    <View style={styles.container}>
-      {/* Quick-add bar */}
-      <View style={[styles.quickAddWrap, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
-        <View style={[styles.quickInputRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+  const handleDragEnd = async ({ data }: { data: Row[] }) => {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    let currentSection = GROCERY_SECTIONS[0].key;
+    for (const row of data) {
+      if (row.type === "header") {
+        currentSection = row.sectionKey;
+      } else if (row.type === "item") {
+        const oldCategory = normalizeCategory(row.item.category);
+        if (oldCategory !== currentSection) {
+          await setItemCategory(row.item.id, currentSection);
+        }
+      }
+    }
+  };
+
+  const renderRow = ({ item: row, drag, isActive }: RenderItemParams<Row>) => {
+    if (row.type === "header") {
+      const isCollapsed = collapsed[row.sectionKey] ?? false;
+      const sectionItems = buckets[row.sectionKey];
+      return (
+        <View
+          style={[
+            styles.sectionCardTop,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              borderBottomWidth: isCollapsed ? 0 : 1,
+            },
+          ]}
+        >
+          <Pressable
+            onPress={() => toggleCollapsed(row.sectionKey)}
+            style={styles.sectionHeader}
+          >
+            <View
+              style={[
+                styles.sectionIcon,
+                { backgroundColor: colors.secondary },
+              ]}
+            >
+              <Feather name={row.icon} size={14} color={colors.primary} />
+            </View>
+            <Text
+              style={[styles.sectionHeaderText, { color: colors.foreground }]}
+            >
+              {row.sectionKey}
+            </Text>
+            {sectionItems.length > 0 && (
+              <View
+                style={[
+                  styles.sectionBadge,
+                  { backgroundColor: colors.secondary },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.sectionBadgeText,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  {sectionItems.length}
+                </Text>
+              </View>
+            )}
+            <View style={styles.flexSpacer} />
+            <Feather
+              name={isCollapsed ? "chevron-down" : "chevron-up"}
+              size={18}
+              color={colors.mutedForeground}
+            />
+          </Pressable>
+        </View>
+      );
+    }
+
+    if (row.type === "adder") {
+      const draft = drafts[row.sectionKey] ?? "";
+      return (
+        <View
+          style={[
+            styles.sectionCardBottom,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
+          <View
+            style={[
+              styles.addRow,
+              {
+                backgroundColor: colors.background,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <Feather name="plus" size={16} color={colors.mutedForeground} />
+            <TextInput
+              value={draft}
+              onChangeText={(t) => setDraft(row.sectionKey, t)}
+              placeholder={`Add to ${row.sectionKey}…`}
+              placeholderTextColor={colors.mutedForeground}
+              style={[styles.addInput, { color: colors.foreground }]}
+              returnKeyType="done"
+              onSubmitEditing={() => handleAddTo(row.sectionKey)}
+              blurOnSubmit={false}
+            />
+            {draft.trim() ? (
+              <TouchableOpacity
+                onPress={() => handleAddTo(row.sectionKey)}
+                style={[
+                  styles.addConfirm,
+                  { backgroundColor: colors.primary },
+                ]}
+              >
+                <Feather name="check" size={14} color="#fff" />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
+      );
+    }
+
+    if (row.type === "empty") {
+      return (
+        <Text style={[styles.hint, { color: colors.mutedForeground }]}>
+          Tap any section above to add items
+        </Text>
+      );
+    }
+
+    const item = row.item;
+    return (
+      <ScaleDecorator activeScale={1.03}>
+        <Pressable
+          onLongPress={() => startEdit(item)}
+          onPress={() => handleToggle(item.id)}
+          style={[
+            styles.item,
+            {
+              backgroundColor: isActive
+                ? colors.card
+                : colors.background,
+              borderColor: isActive ? colors.primary : colors.border,
+              marginHorizontal: 12,
+              marginBottom: 8,
+            },
+          ]}
+        >
+          <TouchableOpacity
+            onPress={(e) => {
+              e.stopPropagation();
+              setMoveItem(item);
+            }}
+            onLongPress={drag}
+            delayLongPress={150}
+            hitSlop={8}
+            style={styles.dotsBtn}
+          >
+            <Feather
+              name="more-vertical"
+              size={15}
+              color={isActive ? colors.primary : colors.mutedForeground}
+            />
+          </TouchableOpacity>
+          <View
+            style={[
+              styles.checkbox,
+              {
+                borderColor: item.done ? colors.primary : colors.border,
+                backgroundColor: item.done ? colors.primary : "transparent",
+              },
+            ]}
+          >
+            {item.done && <Feather name="check" size={14} color="#fff" />}
+          </View>
+          {editingId === item.id ? (
+            <TextInput
+              value={editText}
+              onChangeText={setEditText}
+              style={[
+                styles.itemText,
+                { color: colors.foreground, flex: 1 },
+              ]}
+              autoFocus
+              onBlur={commitEdit}
+              onSubmitEditing={commitEdit}
+              returnKeyType="done"
+            />
+          ) : (
+            <Text
+              style={[
+                styles.itemText,
+                {
+                  color: item.done
+                    ? colors.mutedForeground
+                    : colors.foreground,
+                  textDecorationLine: item.done ? "line-through" : "none",
+                },
+              ]}
+            >
+              {item.text}
+            </Text>
+          )}
+          <TouchableOpacity
+            onPress={() => handleDelete(item)}
+            hitSlop={10}
+            style={styles.iconBtn}
+          >
+            <Feather name="x" size={16} color={colors.mutedForeground} />
+          </TouchableOpacity>
+        </Pressable>
+      </ScaleDecorator>
+    );
+  };
+
+  const listHeader = (
+    <View>
+      <View
+        style={[
+          styles.quickAddWrap,
+          {
+            backgroundColor: colors.background,
+            borderBottomColor: colors.border,
+          },
+        ]}
+      >
+        <View
+          style={[
+            styles.quickInputRow,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+        >
           <Feather name="plus" size={16} color={colors.mutedForeground} />
           <TextInput
             ref={quickInputRef}
@@ -279,217 +548,23 @@ export function GroceryChecklist({
         </View>
       )}
 
-      <ScrollView
-        contentContainerStyle={[styles.list, { paddingBottom: bottomPadding }]}
+      <View style={{ height: 12 }} />
+    </View>
+  );
+
+  return (
+    <View style={styles.container}>
+      <DraggableFlatList
+        data={flatData}
+        keyExtractor={(row) => row.key}
+        renderItem={renderRow}
+        onDragEnd={handleDragEnd}
+        ListHeaderComponent={listHeader}
+        contentContainerStyle={{ paddingBottom: bottomPadding + 16, paddingHorizontal: 16 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-      >
-        {GROCERY_SECTIONS.map((section) => {
-          const sectionItems = buckets[section.key];
-          const isCollapsed = collapsed[section.key] ?? false;
-          const draft = drafts[section.key] ?? "";
-
-          return (
-            <View
-              key={section.key}
-              style={[
-                styles.sectionCard,
-                {
-                  backgroundColor: colors.card,
-                  borderColor: colors.border,
-                },
-              ]}
-            >
-              <Pressable
-                onPress={() => toggleCollapsed(section.key)}
-                style={styles.sectionHeader}
-              >
-                <View
-                  style={[
-                    styles.sectionIcon,
-                    { backgroundColor: colors.secondary },
-                  ]}
-                >
-                  <Feather
-                    name={section.icon}
-                    size={14}
-                    color={colors.primary}
-                  />
-                </View>
-                <Text
-                  style={[
-                    styles.sectionHeaderText,
-                    { color: colors.foreground },
-                  ]}
-                >
-                  {section.key}
-                </Text>
-                {sectionItems.length > 0 && (
-                  <View
-                    style={[
-                      styles.sectionBadge,
-                      { backgroundColor: colors.secondary },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.sectionBadgeText,
-                        { color: colors.mutedForeground },
-                      ]}
-                    >
-                      {sectionItems.length}
-                    </Text>
-                  </View>
-                )}
-                <View style={styles.flexSpacer} />
-                <Feather
-                  name={isCollapsed ? "chevron-down" : "chevron-up"}
-                  size={18}
-                  color={colors.mutedForeground}
-                />
-              </Pressable>
-
-              {!isCollapsed && (
-                <View style={styles.sectionBody}>
-                  {sectionItems.map((item) => (
-                    <Pressable
-                      key={item.id}
-                      onLongPress={() => startEdit(item)}
-                      onPress={() => handleToggle(item.id)}
-                      style={[
-                        styles.item,
-                        {
-                          backgroundColor: colors.background,
-                          borderColor: colors.border,
-                        },
-                      ]}
-                    >
-                      <TouchableOpacity
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          setMoveItem(item);
-                        }}
-                        hitSlop={8}
-                        style={styles.dotsBtn}
-                      >
-                        <Feather
-                          name="more-vertical"
-                          size={15}
-                          color={colors.mutedForeground}
-                        />
-                      </TouchableOpacity>
-                      <View
-                        style={[
-                          styles.checkbox,
-                          {
-                            borderColor: item.done
-                              ? colors.primary
-                              : colors.border,
-                            backgroundColor: item.done
-                              ? colors.primary
-                              : "transparent",
-                          },
-                        ]}
-                      >
-                        {item.done && (
-                          <Feather name="check" size={14} color="#fff" />
-                        )}
-                      </View>
-                      {editingId === item.id ? (
-                        <TextInput
-                          value={editText}
-                          onChangeText={setEditText}
-                          style={[
-                            styles.itemText,
-                            { color: colors.foreground, flex: 1 },
-                          ]}
-                          autoFocus
-                          onBlur={commitEdit}
-                          onSubmitEditing={commitEdit}
-                          returnKeyType="done"
-                        />
-                      ) : (
-                        <Text
-                          style={[
-                            styles.itemText,
-                            {
-                              color: item.done
-                                ? colors.mutedForeground
-                                : colors.foreground,
-                              textDecorationLine: item.done
-                                ? "line-through"
-                                : "none",
-                            },
-                          ]}
-                        >
-                          {item.text}
-                        </Text>
-                      )}
-                      <TouchableOpacity
-                        onPress={() => handleDelete(item)}
-                        hitSlop={10}
-                        style={styles.iconBtn}
-                      >
-                        <Feather
-                          name="x"
-                          size={16}
-                          color={colors.mutedForeground}
-                        />
-                      </TouchableOpacity>
-                    </Pressable>
-                  ))}
-
-                  <View
-                    style={[
-                      styles.addRow,
-                      {
-                        backgroundColor: colors.background,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                  >
-                    <Feather
-                      name="plus"
-                      size={16}
-                      color={colors.mutedForeground}
-                    />
-                    <TextInput
-                      value={draft}
-                      onChangeText={(t) => setDraft(section.key, t)}
-                      placeholder={`Add to ${section.key}…`}
-                      placeholderTextColor={colors.mutedForeground}
-                      style={[
-                        styles.addInput,
-                        { color: colors.foreground },
-                      ]}
-                      returnKeyType="done"
-                      onSubmitEditing={() => handleAddTo(section.key)}
-                      blurOnSubmit={false}
-                    />
-                    {draft.trim() ? (
-                      <TouchableOpacity
-                        onPress={() => handleAddTo(section.key)}
-                        style={[
-                          styles.addConfirm,
-                          { backgroundColor: colors.primary },
-                        ]}
-                      >
-                        <Feather name="check" size={14} color="#fff" />
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
-                </View>
-              )}
-            </View>
-          );
-        })}
-
-        {!loading && items.length === 0 && (
-          <Text style={[styles.hint, { color: colors.mutedForeground }]}>
-            Tap any section above to add items
-          </Text>
-        )}
-      </ScrollView>
+        activationDistance={5}
+      />
 
       <Modal
         visible={moveItem !== null}
@@ -565,21 +640,28 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
+    paddingHorizontal: 4,
     paddingTop: 10,
     paddingBottom: 4,
   },
   metaText: { fontSize: 12, fontFamily: "Inter_400Regular" },
   clearText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
-  list: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    gap: 10,
-  },
-  sectionCard: {
+  sectionCardTop: {
     borderRadius: 16,
     borderWidth: 1,
     overflow: "hidden",
+    marginBottom: 0,
+  },
+  sectionCardBottom: {
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    overflow: "hidden",
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    marginBottom: 10,
   },
   sectionHeader: {
     flexDirection: "row",
@@ -611,11 +693,6 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
   },
   flexSpacer: { flex: 1 },
-  sectionBody: {
-    paddingHorizontal: 12,
-    paddingBottom: 12,
-    gap: 8,
-  },
   item: {
     flexDirection: "row",
     alignItems: "center",
@@ -638,7 +715,7 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_500Medium",
   },
   iconBtn: { padding: 4 },
-  dotsBtn: { padding: 4, marginRight: 4 },
+  dotsBtn: { padding: 4, marginRight: 2 },
   addRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -674,6 +751,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     gap: 10,
     borderBottomWidth: 1,
+    marginHorizontal: -16,
   },
   quickInputRow: {
     flexDirection: "row",
