@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import React, { useMemo, useState } from "react";
+import React, { useRef, useMemo, useState } from "react";
 import {
   Alert,
   Modal,
@@ -68,6 +68,22 @@ export function GroceryChecklist({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [moveItem, setMoveItem] = useState<ChecklistItem | null>(null);
+
+  const [quickText, setQuickText] = useState("");
+  const [quickCategory, setQuickCategory] = useState(GROCERY_SECTIONS[0].key);
+  const quickInputRef = useRef<TextInput>(null);
+  const categoryScrollRef = useRef<ScrollView>(null);
+
+  const handleQuickAdd = async () => {
+    const value = quickText.trim();
+    if (!value) return;
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    await addItem(value, { category: quickCategory });
+    setQuickText("");
+    quickInputRef.current?.focus();
+  };
 
   const completedCount = items.filter((i) => i.done).length;
 
@@ -183,6 +199,73 @@ export function GroceryChecklist({
 
   return (
     <View style={styles.container}>
+      {/* Quick-add bar */}
+      <View style={[styles.quickAddWrap, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+        <View style={[styles.quickInputRow, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Feather name="plus" size={16} color={colors.mutedForeground} />
+          <TextInput
+            ref={quickInputRef}
+            value={quickText}
+            onChangeText={setQuickText}
+            placeholder="Add an item…"
+            placeholderTextColor={colors.mutedForeground}
+            style={[styles.quickInput, { color: colors.foreground }]}
+            returnKeyType="done"
+            onSubmitEditing={handleQuickAdd}
+            blurOnSubmit={false}
+          />
+          {quickText.trim().length > 0 && (
+            <TouchableOpacity
+              onPress={handleQuickAdd}
+              style={[styles.quickAddBtn, { backgroundColor: colors.primary }]}
+              activeOpacity={0.8}
+            >
+              <Feather name="check" size={15} color="#fff" />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <ScrollView
+          ref={categoryScrollRef}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryChips}
+          keyboardShouldPersistTaps="handled"
+        >
+          {GROCERY_SECTIONS.map((s) => {
+            const active = quickCategory === s.key;
+            return (
+              <TouchableOpacity
+                key={s.key}
+                onPress={() => setQuickCategory(s.key)}
+                style={[
+                  styles.categoryChip,
+                  {
+                    backgroundColor: active ? colors.primary : colors.card,
+                    borderColor: active ? colors.primary : colors.border,
+                  },
+                ]}
+                activeOpacity={0.75}
+              >
+                <Feather
+                  name={s.icon}
+                  size={12}
+                  color={active ? "#fff" : colors.mutedForeground}
+                />
+                <Text
+                  style={[
+                    styles.categoryChipText,
+                    { color: active ? "#fff" : colors.foreground },
+                  ]}
+                >
+                  {s.key}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
       {completedCount > 0 && (
         <View style={styles.metaRow}>
           <Text style={[styles.metaText, { color: colors.mutedForeground }]}>
@@ -580,6 +663,52 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     textAlign: "center",
     paddingTop: 24,
+  },
+  quickAddWrap: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 10,
+    gap: 10,
+    borderBottomWidth: 1,
+  },
+  quickInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  quickInput: {
+    flex: 1,
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+    paddingVertical: 10,
+  },
+  quickAddBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  categoryChips: {
+    gap: 8,
+    paddingVertical: 2,
+  },
+  categoryChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  categoryChipText: {
+    fontSize: 12,
+    fontFamily: "Inter_500Medium",
   },
   modalBackdrop: {
     flex: 1,
