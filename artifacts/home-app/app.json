@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Juanfe & Yukita",
+    "name": "JF&Y",
     "slug": "home-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -16,7 +16,9 @@
     "ios": {
       "supportsTablet": false
     },
-    "android": {},
+    "android": {
+      "package": "com.juanfespinal.homeapp"
+    },
     "web": {
       "favicon": "./assets/images/icon.png"
     },
@@ -28,11 +30,30 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow JF&Y to choose receipt images.",
+          "cameraPermission": "Allow JF&Y to take receipt photos.",
+          "microphonePermission": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "bb44928d-64be-4ae0-8c06-07db2c148755"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/bb44928d-64be-4ae0-8c06-07db2c148755"
     }
   }
 }

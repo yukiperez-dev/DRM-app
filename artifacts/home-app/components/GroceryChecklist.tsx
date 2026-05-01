@@ -560,7 +560,12 @@ export function GroceryChecklist({
         renderItem={renderRow}
         onDragEnd={handleDragEnd}
         ListHeaderComponent={listHeader}
-        contentContainerStyle={{ paddingBottom: bottomPadding + 16, paddingHorizontal: 16 }}
+        containerStyle={styles.list}
+        style={styles.list}
+        contentContainerStyle={{
+          paddingBottom: bottomPadding + 16,
+          paddingHorizontal: 16,
+        }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         activationDistance={5}
@@ -635,7 +640,14 @@ export function GroceryChecklist({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: {
+    flex: 1,
+    minHeight: 0,
+  },
+  list: {
+    flex: 1,
+    minHeight: 0,
+  },
   metaRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -659,8 +671,8 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     borderBottomWidth: 1,
     overflow: "hidden",
-    paddingHorizontal: 12,
-    paddingBottom: 12,
+    paddingTop: 4,
+    paddingBottom: 2,
     marginBottom: 10,
   },
   sectionHeader: {
@@ -720,11 +732,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+    marginHorizontal: 12,
+    marginBottom: 10,
     paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingVertical: 10,
     borderRadius: 12,
     borderWidth: 1,
     borderStyle: "dashed",
+    minHeight: 48,
   },
   addInput: {
     flex: 1,

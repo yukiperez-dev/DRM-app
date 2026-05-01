@@ -3,9 +3,9 @@ import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
-  ActionSheetIOS,
+  ActivityIndicator,
   Alert,
   Platform,
   Pressable,
@@ -27,6 +27,7 @@ import {
 } from "@/context/ExpensesContext";
 import DatePickerField from "@/components/DatePickerField";
 import { useColors } from "@/hooks/useColors";
+import { extractReceiptFields } from "@/lib/receipt-ai";
 
 const SPLIT_PRESETS = [25, 30, 40, 50, 60, 70, 75];
 
@@ -34,6 +35,7 @@ export default function AddExpenseScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { addExpense } = useExpenses();
+  const isWeb = Platform.OS === "web";
 
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
@@ -53,8 +55,85 @@ export default function AddExpenseScreen() {
   const [billImageBase64, setBillImageBase64] = useState<string | undefined>(undefined);
   const [otherCategoryName, setOtherCategoryName] = useState("");
   const [error, setError] = useState("");
+  const [receiptMessage, setReceiptMessage] = useState("");
+  const [isExtractingReceipt, setIsExtractingReceipt] = useState(false);
+
+  const extractionRequestRef = useRef(0);
 
   const isBoth = paidBy === "Both";
+
+  const applyExtractedCategory = (nextCategory: string | null) => {
+    if (!nextCategory) {
+      return;
+    }
+
+    if (CATEGORIES.includes(nextCategory)) {
+      setCategory(nextCategory);
+      if (nextCategory !== "Other") {
+        setOtherCategoryName("");
+      }
+      return;
+    }
+
+    setCategory("Other");
+    setOtherCategoryName(nextCategory);
+  };
+
+  const extractReceiptIntoForm = async (nextBillImageBase64: string) => {
+    const requestId = ++extractionRequestRef.current;
+    setIsExtractingReceipt(true);
+    setReceiptMessage("Reading receipt with Gemini...");
+    setError("");
+
+    try {
+      const extracted = await extractReceiptFields(nextBillImageBase64);
+
+      if (requestId !== extractionRequestRef.current) {
+        return;
+      }
+
+      if (extracted.title) {
+        setTitle(extracted.title);
+      }
+
+      if (extracted.date) {
+        setDate(extracted.date);
+      }
+
+      if (extracted.amount != null) {
+        setAmount(String(extracted.amount));
+      }
+
+      applyExtractedCategory(extracted.category);
+      setReceiptMessage("Receipt details filled in. You can adjust anything before saving.");
+    } catch (err) {
+      if (requestId !== extractionRequestRef.current) {
+        return;
+      }
+
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Could not extract receipt details.";
+      setReceiptMessage(message);
+    } finally {
+      if (requestId === extractionRequestRef.current) {
+        setIsExtractingReceipt(false);
+      }
+    }
+  };
+
+  const storePickedReceipt = async (asset: ImagePicker.ImagePickerAsset) => {
+    if (!asset.base64) {
+      return;
+    }
+
+    const mimeType = asset.mimeType?.trim() || "image/jpeg";
+    const nextBillImageBase64 = `data:${mimeType};base64,${asset.base64}`;
+
+    setBillImageBase64(nextBillImageBase64);
+    await extractReceiptIntoForm(nextBillImageBase64);
+  };
 
   const pickFromSource = async (useCamera: boolean) => {
     if (useCamera) {
@@ -70,8 +149,8 @@ export default function AddExpenseScreen() {
         quality: 0.6,
         base64: true,
       });
-      if (!result.canceled && result.assets[0].base64) {
-        setBillImageBase64(`data:image/jpeg;base64,${result.assets[0].base64}`);
+      if (!result.canceled) {
+        await storePickedReceipt(result.assets[0]);
       }
     } else {
       if (Platform.OS !== "web") {
@@ -87,31 +166,40 @@ export default function AddExpenseScreen() {
         quality: 0.6,
         base64: true,
       });
-      if (!result.canceled && result.assets[0].base64) {
-        setBillImageBase64(`data:image/jpeg;base64,${result.assets[0].base64}`);
+      if (!result.canceled) {
+        await storePickedReceipt(result.assets[0]);
       }
     }
   };
 
-  const handlePickBill = () => {
-    if (Platform.OS === "ios") {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options: ["Cancel", "Take Photo", "Choose from Library"], cancelButtonIndex: 0 },
-        (index) => {
-          if (index === 1) pickFromSource(true);
-          if (index === 2) pickFromSource(false);
-        }
-      );
-    } else if (Platform.OS === "web") {
-      pickFromSource(false);
-    } else {
-      Alert.alert("Add Bill", "Choose source", [
-        { text: "Cancel", style: "cancel" },
-        { text: "Take Photo", onPress: () => pickFromSource(true) },
-        { text: "Choose from Library", onPress: () => pickFromSource(false) },
-      ]);
-    }
-  };
+  const renderReceiptSourceButtons = () => (
+    <View style={styles.receiptSourceRow}>
+      <TouchableOpacity
+        style={[
+          styles.receiptSourceBtn,
+          { backgroundColor: colors.primary, borderColor: colors.primary },
+        ]}
+        onPress={() => void pickFromSource(true)}
+        activeOpacity={0.8}
+      >
+        <Feather name="camera" size={16} color="#fff" />
+        <Text style={styles.receiptSourcePrimaryText}>Take photo</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[
+          styles.receiptSourceBtn,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+        onPress={() => void pickFromSource(false)}
+        activeOpacity={0.8}
+      >
+        <Feather name="image" size={16} color={colors.mutedForeground} />
+        <Text style={[styles.receiptSourceText, { color: colors.foreground }]}>
+          Choose image
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
   const isCustomSplit = splitType === "custom";
 
   const handleJuanfePctChange = (text: string) => {
@@ -213,7 +301,7 @@ export default function AddExpenseScreen() {
     router.back();
   };
 
-  const topPadding = Platform.OS === "web" ? 67 : insets.top;
+  const topPadding = isWeb ? Math.max(insets.top, 12) : insets.top;
 
   const paidByOptions: { key: PaidBy; label: string; color: string }[] = [
     { key: "Juanfe", label: "Juanfe", color: colors.juanfe },
@@ -227,7 +315,7 @@ export default function AddExpenseScreen() {
         style={[
           styles.header,
           {
-            paddingTop: topPadding + 12,
+            paddingTop: topPadding + (isWeb ? 8 : 12),
             backgroundColor: colors.background,
             borderBottomColor: colors.border,
           },
@@ -239,8 +327,15 @@ export default function AddExpenseScreen() {
         <Text style={[styles.headerTitle, { color: colors.foreground }]}>
           New Expense
         </Text>
-        <TouchableOpacity onPress={handleSave}>
-          <Text style={[styles.saveBtn, { color: colors.primary }]}>Save</Text>
+        <TouchableOpacity onPress={handleSave} disabled={isExtractingReceipt}>
+          <Text
+            style={[
+              styles.saveBtn,
+              { color: isExtractingReceipt ? colors.mutedForeground : colors.primary },
+            ]}
+          >
+            Save
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -261,6 +356,73 @@ export default function AddExpenseScreen() {
           </View>
         ) : null}
 
+        <View style={styles.field}>
+          <Text style={[styles.label, { color: colors.mutedForeground }]}>
+            Receipt (optional)
+          </Text>
+          <Text style={[styles.helperText, { color: colors.mutedForeground }]}>
+            Add a receipt first and Gemini will try to fill in the expense details.
+          </Text>
+          {billImageBase64 ? (
+            <View style={styles.receiptPickerStack}>
+              <View style={styles.billPreviewWrap}>
+                <Image
+                  source={{ uri: billImageBase64 }}
+                  style={styles.billPreview}
+                  contentFit="cover"
+                />
+                <TouchableOpacity
+                  style={[styles.billRemoveBtn, { backgroundColor: colors.destructive }]}
+                  onPress={() => {
+                    extractionRequestRef.current += 1;
+                    setBillImageBase64(undefined);
+                    setIsExtractingReceipt(false);
+                    setReceiptMessage("");
+                  }}
+                >
+                  <Feather name="x" size={14} color="#fff" />
+                </TouchableOpacity>
+              </View>
+              {renderReceiptSourceButtons()}
+            </View>
+          ) : (
+            <View
+              style={[styles.billPicker, { backgroundColor: colors.secondary, borderColor: colors.border }]}
+            >
+              <View style={[styles.billPickerIcon, { backgroundColor: colors.primary + "22" }]}>
+                <Feather name="camera" size={22} color={colors.primary} />
+              </View>
+              <View style={styles.billPickerContent}>
+                <Text style={[styles.billPickerText, { color: colors.mutedForeground }]}>
+                  Take a photo or choose a receipt image
+                </Text>
+                {renderReceiptSourceButtons()}
+              </View>
+            </View>
+          )}
+          {isExtractingReceipt ? (
+            <View style={styles.receiptStatusRow}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={[styles.receiptStatusText, { color: colors.primary }]}>
+                {receiptMessage}
+              </Text>
+            </View>
+          ) : receiptMessage ? (
+            <Text
+              style={[
+                styles.receiptStatusText,
+                {
+                  color: receiptMessage.includes("filled in")
+                    ? colors.primary
+                    : colors.destructive,
+                },
+              ]}
+            >
+              {receiptMessage}
+            </Text>
+          ) : null}
+        </View>
+
         {/* Title */}
         <View style={styles.field}>
           <Text style={[styles.label, { color: colors.mutedForeground }]}>Title</Text>
@@ -280,41 +442,6 @@ export default function AddExpenseScreen() {
         <View style={styles.field}>
           <Text style={[styles.label, { color: colors.mutedForeground }]}>Date</Text>
           <DatePickerField value={date} onChange={setDate} />
-        </View>
-
-        {/* Paid by */}
-        <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.mutedForeground }]}>Paid by</Text>
-          <View style={styles.threeRow}>
-            {paidByOptions.map(({ key, label, color }) => {
-              const isSelected = paidBy === key;
-              return (
-                <Pressable
-                  key={key}
-                  onPress={() => { setPaidBy(key); setError(""); }}
-                  style={[
-                    styles.threeBtn,
-                    {
-                      backgroundColor: isSelected ? color + "22" : colors.secondary,
-                      borderColor: isSelected ? color : colors.border,
-                    },
-                  ]}
-                >
-                  {key === "Both" ? (
-                    <View style={styles.bothDots}>
-                      <View style={[styles.personDot, { backgroundColor: colors.juanfe }]} />
-                      <View style={[styles.personDot, { backgroundColor: colors.yukita, marginLeft: -4 }]} />
-                    </View>
-                  ) : (
-                    <View style={[styles.personDot, { backgroundColor: color }]} />
-                  )}
-                  <Text style={[styles.threeBtnText, { color: isSelected ? color : colors.mutedForeground }]}>
-                    {label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
         </View>
 
         {/* Amount & Currency */}
@@ -453,6 +580,41 @@ export default function AddExpenseScreen() {
           )}
         </View>
 
+        {/* Paid by */}
+        <View style={styles.field}>
+          <Text style={[styles.label, { color: colors.mutedForeground }]}>Paid by</Text>
+          <View style={styles.threeRow}>
+            {paidByOptions.map(({ key, label, color }) => {
+              const isSelected = paidBy === key;
+              return (
+                <Pressable
+                  key={key}
+                  onPress={() => { setPaidBy(key); setError(""); }}
+                  style={[
+                    styles.threeBtn,
+                    {
+                      backgroundColor: isSelected ? color + "22" : colors.secondary,
+                      borderColor: isSelected ? color : colors.border,
+                    },
+                  ]}
+                >
+                  {key === "Both" ? (
+                    <View style={styles.bothDots}>
+                      <View style={[styles.personDot, { backgroundColor: colors.juanfe }]} />
+                      <View style={[styles.personDot, { backgroundColor: colors.yukita, marginLeft: -4 }]} />
+                    </View>
+                  ) : (
+                    <View style={[styles.personDot, { backgroundColor: color }]} />
+                  )}
+                  <Text style={[styles.threeBtnText, { color: isSelected ? color : colors.mutedForeground }]}>
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
         {/* Split */}
         <View style={styles.field}>
           <Text style={[styles.label, { color: colors.mutedForeground }]}>Split</Text>
@@ -503,7 +665,6 @@ export default function AddExpenseScreen() {
                 { backgroundColor: colors.secondary, borderColor: colors.border },
               ]}
             >
-              {/* Visual split bar */}
               <View style={[styles.splitBar, { backgroundColor: colors.border }]}>
                 <View
                   style={[
@@ -519,7 +680,6 @@ export default function AddExpenseScreen() {
                 />
               </View>
 
-              {/* Percentage inputs */}
               <View style={styles.pctRow}>
                 <View style={styles.pctField}>
                   <View style={[styles.personDot, { backgroundColor: colors.juanfe }]} />
@@ -556,7 +716,6 @@ export default function AddExpenseScreen() {
                 </View>
               </View>
 
-              {/* Quick presets */}
               <View style={styles.presetRow}>
                 {SPLIT_PRESETS.map((preset) => {
                   const isActive = juanfePct === preset;
@@ -585,51 +744,6 @@ export default function AddExpenseScreen() {
                 })}
               </View>
             </View>
-          )}
-        </View>
-
-        {/* Bill Photo */}
-        <View style={styles.field}>
-          <Text style={[styles.label, { color: colors.mutedForeground }]}>
-            Bill Photo (optional)
-          </Text>
-          {billImageBase64 ? (
-            <View style={styles.billPreviewWrap}>
-              <Image
-                source={{ uri: billImageBase64 }}
-                style={styles.billPreview}
-                contentFit="cover"
-              />
-              <TouchableOpacity
-                style={[styles.billRemoveBtn, { backgroundColor: colors.destructive }]}
-                onPress={() => setBillImageBase64(undefined)}
-              >
-                <Feather name="x" size={14} color="#fff" />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.billChangeBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-                onPress={handlePickBill}
-              >
-                <Feather name="refresh-cw" size={13} color={colors.mutedForeground} />
-                <Text style={[styles.billChangeBtnText, { color: colors.mutedForeground }]}>
-                  Replace
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <TouchableOpacity
-              style={[styles.billPicker, { backgroundColor: colors.secondary, borderColor: colors.border }]}
-              onPress={handlePickBill}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.billPickerIcon, { backgroundColor: colors.primary + "22" }]}>
-                <Feather name="camera" size={22} color={colors.primary} />
-              </View>
-              <Text style={[styles.billPickerText, { color: colors.mutedForeground }]}>
-                {Platform.OS === "web" ? "Upload photo" : "Take photo or choose from library"}
-              </Text>
-              <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
-            </TouchableOpacity>
           )}
         </View>
 
@@ -693,9 +807,10 @@ export default function AddExpenseScreen() {
           style={[styles.saveButton, { backgroundColor: colors.primary }]}
           onPress={handleSave}
           activeOpacity={0.85}
+          disabled={isExtractingReceipt}
         >
           <Text style={[styles.saveButtonText, { color: colors.primaryForeground }]}>
-            Add Expense
+            {isExtractingReceipt ? "Reading Receipt..." : "Add Expense"}
           </Text>
         </TouchableOpacity>
       </KeyboardAwareScrollView>
@@ -725,6 +840,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
+  helperText: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 18 },
   input: {
     borderWidth: 1,
     borderRadius: 12,
@@ -863,6 +979,33 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   billPickerText: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular" },
+  billPickerContent: { flex: 1, gap: 10 },
+  receiptPickerStack: { gap: 10 },
+  receiptSourceRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  receiptSourceBtn: {
+    flex: 1,
+    minHeight: 42,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  receiptSourcePrimaryText: {
+    color: "#fff",
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+  },
+  receiptSourceText: {
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+  },
   billPreviewWrap: { position: "relative", borderRadius: 14, overflow: "visible" },
   billPreview: { width: "100%", height: 200, borderRadius: 14 },
   billRemoveBtn: {
@@ -875,19 +1018,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  billChangeBtn: {
-    position: "absolute",
-    bottom: 8,
-    right: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  billChangeBtnText: { fontSize: 12, fontFamily: "Inter_500Medium" },
+  receiptStatusRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 },
+  receiptStatusText: { fontSize: 13, fontFamily: "Inter_500Medium", lineHeight: 18 },
   // Save button
   saveButton: {
     paddingVertical: 16,

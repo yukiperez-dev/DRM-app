@@ -7,6 +7,8 @@ import React, {
   useState,
 } from "react";
 import { Currency } from "./ExpensesContext";
+import { getApiBase } from "../lib/api";
+import { useRevalidateOnActive } from "@/hooks/useRevalidateOnActive";
 
 export interface Budget {
   id: string;
@@ -20,18 +22,11 @@ interface BudgetsContextType {
   getBudget: (category: string) => Budget | undefined;
   setBudget: (category: string, amount: number, currency: Currency) => Promise<void>;
   removeBudget: (category: string) => Promise<void>;
+  refreshBudgets: () => Promise<void>;
   loading: boolean;
 }
 
 const BudgetsContext = createContext<BudgetsContextType | null>(null);
-
-function getApiBase(): string {
-  const domain = process.env.EXPO_PUBLIC_DOMAIN;
-  if (domain) {
-    return `https://${domain}/api`;
-  }
-  return "/api";
-}
 
 function rowToBudget(row: any): Budget {
   return {
@@ -49,7 +44,7 @@ export function BudgetsProvider({ children }: { children: React.ReactNode }) {
 
   const fetchBudgets = useCallback(async () => {
     try {
-      const res = await fetch(`${apiBase}/budgets`);
+      const res = await fetch(`${apiBase}/budgets`, { cache: "no-store" });
       if (!res.ok) throw new Error("Failed to fetch budgets");
       const data = await res.json();
       setBudgets((data as any[]).map(rowToBudget));
@@ -63,6 +58,8 @@ export function BudgetsProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     fetchBudgets();
   }, [fetchBudgets]);
+
+  useRevalidateOnActive(fetchBudgets);
 
   const getBudget = useCallback(
     (category: string) => budgets.find((b) => b.category === category),
@@ -103,7 +100,9 @@ export function BudgetsProvider({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <BudgetsContext.Provider value={{ budgets, getBudget, setBudget, removeBudget, loading }}>
+    <BudgetsContext.Provider
+      value={{ budgets, getBudget, setBudget, removeBudget, refreshBudgets: fetchBudgets, loading }}
+    >
       {children}
     </BudgetsContext.Provider>
   );

@@ -154,6 +154,12 @@ export function TodoChecklistSection({
   };
 
   const handleDelete = (item: ChecklistItem) => {
+    if (Platform.OS === "web") {
+      if (window.confirm(`Remove "${item.text}"?`)) {
+        void deleteItem(item.id);
+      }
+      return;
+    }
     Alert.alert("Delete item", `Remove "${item.text}"?`, [
       { text: "Cancel", style: "cancel" },
       {
@@ -171,6 +177,16 @@ export function TodoChecklistSection({
 
   const handleClearCompleted = () => {
     if (completedCount === 0) return;
+    if (Platform.OS === "web") {
+      if (
+        window.confirm(
+          `Remove ${completedCount} completed item${completedCount > 1 ? "s" : ""}?`
+        )
+      ) {
+        void clearCompleted();
+      }
+      return;
+    }
     Alert.alert(
       "Clear completed",
       `Remove ${completedCount} completed item${completedCount > 1 ? "s" : ""}?`,
@@ -422,6 +438,7 @@ export function TodoChecklistSection({
       )}
 
       <SectionList
+        style={styles.listScroller}
         sections={sections}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
@@ -576,7 +593,10 @@ export function TodoChecklistSection({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, minHeight: 0 },
+  listScroller: {
+    flex: 1,
+  },
   inputRow: {
     flexDirection: "row",
     alignItems: "center",

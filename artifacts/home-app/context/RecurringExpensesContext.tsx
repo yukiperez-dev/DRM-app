@@ -7,6 +7,8 @@ import React, {
   useState,
 } from "react";
 import { Currency, PaidBy, SplitType, type Expense } from "./ExpensesContext";
+import { getApiBase } from "../lib/api";
+import { useRevalidateOnActive } from "@/hooks/useRevalidateOnActive";
 
 export interface RecurringExpense {
   id: string;
@@ -30,18 +32,11 @@ interface RecurringExpensesContextType {
   updateRecurring: (id: string, data: Omit<RecurringExpense, "id">) => Promise<void>;
   deleteRecurring: (id: string) => Promise<void>;
   generateForMonth: (year: number, month: number) => Promise<{ generated: Expense[]; skipped: string[] }>;
+  refreshRecurringExpenses: () => Promise<void>;
   loading: boolean;
 }
 
 const RecurringExpensesContext = createContext<RecurringExpensesContextType | null>(null);
-
-function getApiBase(): string {
-  const domain = process.env.EXPO_PUBLIC_DOMAIN;
-  if (domain) {
-    return `https://${domain}/api`;
-  }
-  return "/api";
-}
 
 function rowToRecurring(row: any): RecurringExpense {
   return {
@@ -71,7 +66,7 @@ export function RecurringExpensesProvider({ children }: { children: React.ReactN
 
   const fetchRecurring = useCallback(async () => {
     try {
-      const res = await fetch(`${apiBase}/recurring-expenses`);
+      const res = await fetch(`${apiBase}/recurring-expenses`, { cache: "no-store" });
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       setRecurringExpenses((data as any[]).map(rowToRecurring));
@@ -85,6 +80,8 @@ export function RecurringExpensesProvider({ children }: { children: React.ReactN
   useEffect(() => {
     fetchRecurring();
   }, [fetchRecurring]);
+
+  useRevalidateOnActive(fetchRecurring);
 
   const addRecurring = useCallback(
     async (data: Omit<RecurringExpense, "id">) => {
@@ -140,7 +137,15 @@ export function RecurringExpensesProvider({ children }: { children: React.ReactN
 
   return (
     <RecurringExpensesContext.Provider
-      value={{ recurringExpenses, addRecurring, updateRecurring, deleteRecurring, generateForMonth, loading }}
+      value={{
+        recurringExpenses,
+        addRecurring,
+        updateRecurring,
+        deleteRecurring,
+        generateForMonth,
+        refreshRecurringExpenses: fetchRecurring,
+        loading,
+      }}
     >
       {children}
     </RecurringExpensesContext.Provider>

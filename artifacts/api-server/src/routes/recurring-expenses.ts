@@ -148,7 +148,10 @@ router.put("/recurring-expenses/:id", async (req, res) => {
       })
       .where(eq(recurringExpensesTable.id, id))
       .returning();
-    if (!item) return res.status(404).json({ error: "Not found" });
+    if (!item) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
     res.json(item);
   } catch (err) {
     res.status(500).json({ error: "Failed to update recurring expense" });
@@ -169,7 +172,8 @@ router.post("/recurring-expenses/generate", async (req, res) => {
   try {
     const { year, month } = req.body;
     if (!year || !month) {
-      return res.status(400).json({ error: "year and month are required" });
+      res.status(400).json({ error: "year and month are required" });
+      return;
     }
 
     const monthStr = String(month).padStart(2, "0");

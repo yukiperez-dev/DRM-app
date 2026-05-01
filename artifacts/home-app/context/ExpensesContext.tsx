@@ -6,6 +6,8 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import { getApiBase } from "../lib/api";
+import { useRevalidateOnActive } from "@/hooks/useRevalidateOnActive";
 
 export type Currency = "COP" | "EUR";
 export type Person = "Juanfe" | "Yukita";
@@ -28,6 +30,16 @@ export interface Expense {
   note?: string;
   billImageBase64?: string;
   recurringExpenseId?: string;
+}
+
+export interface Settlement {
+  id: string;
+  fromPerson: Person;
+  toPerson: Person;
+  amount: number;
+  currency: Currency;
+  date: string;
+  note?: string;
 }
 
 export const CATEGORIES = [
@@ -119,23 +131,19 @@ interface Balance {
 
 interface ExpensesContextType {
   expenses: Expense[];
+  settlements: Settlement[];
   addExpense: (expense: Omit<Expense, "id">) => Promise<void>;
+  addSettlement: (settlement: Omit<Settlement, "id">) => Promise<void>;
   updateExpense: (id: string, updates: Omit<Expense, "id">) => Promise<void>;
   togglePaid: (id: string) => Promise<void>;
   deleteExpense: (id: string) => Promise<void>;
+  deleteSettlement: (id: string) => Promise<void>;
+  refreshExpenses: () => Promise<void>;
   getBalance: (currency: Currency) => Balance;
   loading: boolean;
 }
 
 const ExpensesContext = createContext<ExpensesContextType | null>(null);
-
-function getApiBase(): string {
-  const domain = process.env.EXPO_PUBLIC_DOMAIN;
-  if (domain) {
-    return `https://${domain}/api`;
-  }
-  return "/api";
-}
 
 function dbRowToExpense(row: any): Expense {
   return {
@@ -159,20 +167,43 @@ function dbRowToExpense(row: any): Expense {
   };
 }
 
+function dbRowToSettlement(row: any): Settlement {
+  return {
+    id: row.id,
+    fromPerson: (row.fromPerson ?? row.from_person) as Person,
+    toPerson: (row.toPerson ?? row.to_person) as Person,
+    amount: parseFloat(row.amount),
+    currency: row.currency as Currency,
+    date: row.date,
+    note: row.note ?? undefined,
+  };
+}
+
 export function ExpensesProvider({ children }: { children: React.ReactNode }) {
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [loading, setLoading] = useState(true);
 
   const apiBase = useMemo(() => getApiBase(), []);
 
   const fetchExpenses = useCallback(async () => {
     try {
-      const res = await fetch(`${apiBase}/expenses`);
-      if (!res.ok) throw new Error("Failed to fetch");
-      const data = await res.json();
-      setExpenses((data as any[]).map(dbRowToExpense).reverse());
+      const [expensesRes, settlementsRes] = await Promise.all([
+        fetch(`${apiBase}/expenses`, { cache: "no-store" }),
+        fetch(`${apiBase}/settlements`, { cache: "no-store" }),
+      ]);
+
+      if (!expensesRes.ok || !settlementsRes.ok) throw new Error("Failed to fetch");
+
+      const [expensesData, settlementsData] = await Promise.all([
+        expensesRes.json(),
+        settlementsRes.json(),
+      ]);
+
+      setExpenses((expensesData as any[]).map(dbRowToExpense).reverse());
+      setSettlements((settlementsData as any[]).map(dbRowToSettlement).reverse());
     } catch (err) {
-      console.error("Failed to load expenses from API", err);
+      console.error("Failed to load expense data from API", err);
     } finally {
       setLoading(false);
     }
@@ -181,6 +212,8 @@ export function ExpensesProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     fetchExpenses();
   }, [fetchExpenses]);
+
+  useRevalidateOnActive(fetchExpenses);
 
   const addExpense = useCallback(
     async (expense: Omit<Expense, "id">) => {
@@ -212,6 +245,22 @@ export function ExpensesProvider({ children }: { children: React.ReactNode }) {
     [apiBase]
   );
 
+  const addSettlement = useCallback(
+    async (settlement: Omit<Settlement, "id">) => {
+      const id = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+      const body = { ...settlement, id };
+      const res = await fetch(`${apiBase}/settlements`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error("Failed to create settlement");
+      const created = dbRowToSettlement(await res.json());
+      setSettlements((prev) => [created, ...prev]);
+    },
+    [apiBase]
+  );
+
   const togglePaid = useCallback(
     async (id: string) => {
       const res = await fetch(`${apiBase}/expenses/${id}/toggle-paid`, {
@@ -231,6 +280,17 @@ export function ExpensesProvider({ children }: { children: React.ReactNode }) {
       });
       if (!res.ok) throw new Error("Failed to delete expense");
       setExpenses((prev) => prev.filter((e) => e.id !== id));
+    },
+    [apiBase]
+  );
+
+  const deleteSettlement = useCallback(
+    async (id: string) => {
+      const res = await fetch(`${apiBase}/settlements/${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete settlement");
+      setSettlements((prev) => prev.filter((settlement) => settlement.id !== id));
     },
     [apiBase]
   );
@@ -286,6 +346,23 @@ export function ExpensesProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
+      for (const settlement of settlements) {
+        const amountInCurrency = convertAmount(
+          settlement.amount,
+          settlement.currency,
+          currency
+        );
+
+        if (settlement.fromPerson === "Juanfe" && settlement.toPerson === "Yukita") {
+          juanfePaid -= amountInCurrency;
+        } else if (
+          settlement.fromPerson === "Yukita" &&
+          settlement.toPerson === "Juanfe"
+        ) {
+          yukitaPaid -= amountInCurrency;
+        }
+      }
+
       const netAmount = Math.abs(juanfePaid - yukitaPaid);
       const netOwer: Person | null =
         hasPending || netAmount < 0.01
@@ -303,12 +380,24 @@ export function ExpensesProvider({ children }: { children: React.ReactNode }) {
         hasPending,
       };
     },
-    [expenses]
+    [expenses, settlements]
   );
 
   return (
     <ExpensesContext.Provider
-      value={{ expenses, addExpense, updateExpense, togglePaid, deleteExpense, getBalance, loading }}
+      value={{
+        expenses,
+        settlements,
+        addExpense,
+        addSettlement,
+        updateExpense,
+        togglePaid,
+        deleteExpense,
+        deleteSettlement,
+        refreshExpenses: fetchExpenses,
+        getBalance,
+        loading,
+      }}
     >
       {children}
     </ExpensesContext.Provider>

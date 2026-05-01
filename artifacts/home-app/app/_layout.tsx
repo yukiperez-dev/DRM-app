@@ -18,6 +18,7 @@ import { ExpensesProvider } from "@/context/ExpensesContext";
 import { RecurringExpensesProvider } from "@/context/RecurringExpensesContext";
 import { BudgetsProvider } from "@/context/BudgetsContext";
 import { GroceryProvider, TodoProvider } from "@/context/ChecklistContext";
+import { usePwaAutoUpdate } from "@/hooks/usePwaAutoUpdate";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -50,6 +51,8 @@ export default function RootLayout() {
     Inter_600SemiBold,
     Inter_700Bold,
   });
+
+  usePwaAutoUpdate();
 
   useEffect(() => {
     if (fontsLoaded || fontError) {

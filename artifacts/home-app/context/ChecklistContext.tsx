@@ -6,6 +6,8 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import { getApiBase } from "../lib/api";
+import { useRevalidateOnActive } from "@/hooks/useRevalidateOnActive";
 
 export interface ChecklistItem {
   id: string;
@@ -25,19 +27,12 @@ interface ChecklistContextType {
   setItemDueDate: (id: string, dueDate: string | undefined) => Promise<void>;
   deleteItem: (id: string) => Promise<void>;
   clearCompleted: () => Promise<void>;
+  refreshItems: () => Promise<void>;
   loading: boolean;
 }
 
 function genId() {
   return Date.now().toString() + Math.random().toString(36).substr(2, 9);
-}
-
-function getApiBase(): string {
-  const domain = process.env.EXPO_PUBLIC_DOMAIN;
-  if (domain) {
-    return `https://${domain}/api`;
-  }
-  return "/api";
 }
 
 function rowToItem(row: any): ChecklistItem {
@@ -72,7 +67,7 @@ function createChecklistContext(listKey: "todo" | "grocery") {
 
     const fetchItems = useCallback(async () => {
       try {
-        const res = await fetch(`${apiBase}/checklist/${listKey}`);
+        const res = await fetch(`${apiBase}/checklist/${listKey}`, { cache: "no-store" });
         if (!res.ok) throw new Error("Failed to fetch");
         const data = await res.json();
         setItems(sortItems((data as any[]).map(rowToItem)));
@@ -86,6 +81,8 @@ function createChecklistContext(listKey: "todo" | "grocery") {
     useEffect(() => {
       fetchItems();
     }, [fetchItems]);
+
+    useRevalidateOnActive(fetchItems);
 
     const addItem = useCallback(
       async (text: string, opts?: { category?: string; dueDate?: string }) => {
@@ -188,6 +185,7 @@ function createChecklistContext(listKey: "todo" | "grocery") {
           setItemDueDate,
           deleteItem,
           clearCompleted,
+          refreshItems: fetchItems,
           loading,
         }}
       >

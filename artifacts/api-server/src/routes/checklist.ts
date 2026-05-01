@@ -13,7 +13,10 @@ function assertList(list: string): boolean {
 router.get("/checklist/:list", async (req, res) => {
   try {
     const { list } = req.params;
-    if (!assertList(list)) return res.status(400).json({ error: "Invalid list" });
+    if (!assertList(list)) {
+      res.status(400).json({ error: "Invalid list" });
+      return;
+    }
     const items = await db
       .select()
       .from(checklistItemsTable)
@@ -28,10 +31,14 @@ router.get("/checklist/:list", async (req, res) => {
 router.post("/checklist/:list", async (req, res) => {
   try {
     const { list } = req.params;
-    if (!assertList(list)) return res.status(400).json({ error: "Invalid list" });
+    if (!assertList(list)) {
+      res.status(400).json({ error: "Invalid list" });
+      return;
+    }
     const body = req.body;
     if (!body.id || typeof body.text !== "string" || !body.text.trim()) {
-      return res.status(400).json({ error: "Missing id or text" });
+      res.status(400).json({ error: "Missing id or text" });
+      return;
     }
     const [item] = await db
       .insert(checklistItemsTable)
@@ -53,13 +60,19 @@ router.post("/checklist/:list", async (req, res) => {
 router.patch("/checklist/:list/:id", async (req, res) => {
   try {
     const { list, id } = req.params;
-    if (!assertList(list)) return res.status(400).json({ error: "Invalid list" });
+    if (!assertList(list)) {
+      res.status(400).json({ error: "Invalid list" });
+      return;
+    }
     const body = req.body;
 
     const updates: Record<string, unknown> = { updatedAt: new Date() };
     if (typeof body.text === "string") {
       const trimmed = body.text.trim();
-      if (!trimmed) return res.status(400).json({ error: "Text cannot be empty" });
+      if (!trimmed) {
+        res.status(400).json({ error: "Text cannot be empty" });
+        return;
+      }
       updates.text = trimmed;
     }
     if (typeof body.done === "boolean") updates.done = body.done;
@@ -76,7 +89,10 @@ router.patch("/checklist/:list/:id", async (req, res) => {
         ),
       )
       .returning();
-    if (!item) return res.status(404).json({ error: "Item not found" });
+    if (!item) {
+      res.status(404).json({ error: "Item not found" });
+      return;
+    }
     res.json(item);
   } catch (err) {
     res.status(500).json({ error: "Failed to update checklist item" });
@@ -86,7 +102,10 @@ router.patch("/checklist/:list/:id", async (req, res) => {
 router.patch("/checklist/:list/:id/toggle", async (req, res) => {
   try {
     const { list, id } = req.params;
-    if (!assertList(list)) return res.status(400).json({ error: "Invalid list" });
+    if (!assertList(list)) {
+      res.status(400).json({ error: "Invalid list" });
+      return;
+    }
     const [current] = await db
       .select()
       .from(checklistItemsTable)
@@ -96,7 +115,10 @@ router.patch("/checklist/:list/:id/toggle", async (req, res) => {
           eq(checklistItemsTable.list, list),
         ),
       );
-    if (!current) return res.status(404).json({ error: "Item not found" });
+    if (!current) {
+      res.status(404).json({ error: "Item not found" });
+      return;
+    }
     const [item] = await db
       .update(checklistItemsTable)
       .set({ done: !current.done, updatedAt: new Date() })
@@ -116,7 +138,10 @@ router.patch("/checklist/:list/:id/toggle", async (req, res) => {
 router.delete("/checklist/:list/completed", async (req, res) => {
   try {
     const { list } = req.params;
-    if (!assertList(list)) return res.status(400).json({ error: "Invalid list" });
+    if (!assertList(list)) {
+      res.status(400).json({ error: "Invalid list" });
+      return;
+    }
     await db
       .delete(checklistItemsTable)
       .where(
@@ -134,7 +159,10 @@ router.delete("/checklist/:list/completed", async (req, res) => {
 router.delete("/checklist/:list/:id", async (req, res) => {
   try {
     const { list, id } = req.params;
-    if (!assertList(list)) return res.status(400).json({ error: "Invalid list" });
+    if (!assertList(list)) {
+      res.status(400).json({ error: "Invalid list" });
+      return;
+    }
     await db
       .delete(checklistItemsTable)
       .where(

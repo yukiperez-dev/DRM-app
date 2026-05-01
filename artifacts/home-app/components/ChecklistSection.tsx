@@ -69,6 +69,12 @@ export function ChecklistSection({
   };
 
   const handleDelete = (item: ChecklistItem) => {
+    if (Platform.OS === "web") {
+      if (window.confirm(`Remove "${item.text}"?`)) {
+        void deleteItem(item.id);
+      }
+      return;
+    }
     Alert.alert("Delete item", `Remove "${item.text}"?`, [
       { text: "Cancel", style: "cancel" },
       {
@@ -86,6 +92,16 @@ export function ChecklistSection({
 
   const handleClearCompleted = () => {
     if (completedCount === 0) return;
+    if (Platform.OS === "web") {
+      if (
+        window.confirm(
+          `Remove ${completedCount} completed item${completedCount > 1 ? "s" : ""}?`
+        )
+      ) {
+        void clearCompleted();
+      }
+      return;
+    }
     Alert.alert(
       "Clear completed",
       `Remove ${completedCount} completed item${completedCount > 1 ? "s" : ""}?`,

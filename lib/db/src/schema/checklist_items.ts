@@ -1,6 +1,6 @@
 import { pgTable, text, boolean, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 export const checklistItemsTable = pgTable("checklist_items", {
   id: text("id").primaryKey(),

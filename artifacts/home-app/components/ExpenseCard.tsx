@@ -1,11 +1,9 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { Image } from "expo-image";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React from "react";
 import {
   Alert,
-  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -42,7 +40,6 @@ interface Props {
 
 export function ExpenseCard({ expense, onDelete }: Props) {
   const colors = useColors();
-  const [billVisible, setBillVisible] = useState(false);
 
   const handleDelete = (e: any) => {
     if (Platform.OS === "web") {
@@ -98,13 +95,11 @@ export function ExpenseCard({ expense, onDelete }: Props) {
             </Text>
             <View style={styles.rowActions}>
               {hasBill && (
-                <TouchableOpacity
-                  onPress={(e) => { e.stopPropagation?.(); setBillVisible(true); }}
-                  hitSlop={8}
+                <View
                   style={[styles.billBadge, { backgroundColor: colors.primary + "18", borderColor: colors.primary + "40" }]}
                 >
                   <Feather name="image" size={12} color={colors.primary} />
-                </TouchableOpacity>
+                </View>
               )}
               <TouchableOpacity onPress={handleDelete} hitSlop={8}>
                 <Feather name="trash-2" size={16} color={colors.mutedForeground} />
@@ -146,45 +141,11 @@ export function ExpenseCard({ expense, onDelete }: Props) {
           {splitLabel ? (
             <Text style={[styles.splitNote, { color: colors.mutedForeground }]}>{splitLabel}</Text>
           ) : null}
-          {hasBill && (
-            <Pressable onPress={(e) => { e.stopPropagation?.(); setBillVisible(true); }}>
-              <Image
-                source={{ uri: expense.billImageBase64 }}
-                style={[styles.billThumb, { borderColor: colors.border }]}
-                contentFit="cover"
-              />
-            </Pressable>
-          )}
         </View>
         <View style={[styles.chevronWrap]}>
           <Feather name="chevron-right" size={14} color={colors.mutedForeground} />
         </View>
       </Pressable>
-
-      {hasBill && (
-        <Modal
-          visible={billVisible}
-          animationType="fade"
-          transparent
-          onRequestClose={() => setBillVisible(false)}
-        >
-          <Pressable style={styles.modalBackdrop} onPress={() => setBillVisible(false)}>
-            <View style={styles.modalContent}>
-              <Image
-                source={{ uri: expense.billImageBase64 }}
-                style={styles.modalImage}
-                contentFit="contain"
-              />
-              <TouchableOpacity
-                style={[styles.modalClose, { backgroundColor: colors.card }]}
-                onPress={() => setBillVisible(false)}
-              >
-                <Feather name="x" size={20} color={colors.foreground} />
-              </TouchableOpacity>
-            </View>
-          </Pressable>
-        </Modal>
-      )}
     </>
   );
 }
@@ -228,21 +189,7 @@ const styles = StyleSheet.create({
     width: 22, height: 22, borderRadius: 6, borderWidth: 1,
     alignItems: "center", justifyContent: "center",
   },
-  billThumb: { width: "100%", height: 120, borderRadius: 10, marginTop: 6, borderWidth: 1 },
   pendingRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
   pendingText: { fontSize: 11, fontFamily: "Inter_600SemiBold" },
   chevronWrap: { justifyContent: "center", paddingTop: 4 },
-  modalBackdrop: {
-    flex: 1, backgroundColor: "rgba(0,0,0,0.85)",
-    alignItems: "center", justifyContent: "center", padding: 20,
-  },
-  modalContent: { width: "100%", maxWidth: 500, position: "relative" },
-  modalImage: { width: "100%", height: 500, borderRadius: 16 },
-  modalClose: {
-    position: "absolute", top: -14, right: -14,
-    width: 36, height: 36, borderRadius: 18,
-    alignItems: "center", justifyContent: "center",
-    shadowColor: "#000", shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3, shadowRadius: 6, elevation: 6,
-  },
 });

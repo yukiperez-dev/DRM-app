@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CurrencyToggle } from "@/components/CurrencyToggle";
+import { ExpenseAnalytics } from "@/components/ExpenseAnalytics";
 import {
   CATEGORIES,
   Currency,
@@ -82,32 +83,12 @@ export default function SummaryScreen() {
       .sort((a, b) => b[1].total - a[1].total);
   }, [expenses, thisMonthExpenses, currency]);
 
-  const monthlyTotals = useMemo(() => {
-    const monthMap = new Map<string, { label: string; total: number; key: string }>();
-    for (const e of expenses) {
-      const d = new Date(e.date);
-      const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
-      const label = d.toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
-      const existing = monthMap.get(key);
-      const amt = convertAmount(e.amount, e.currency, currency);
-      if (existing) {
-        existing.total += amt;
-      } else {
-        monthMap.set(key, { label, total: amt, key });
-      }
-    }
-    return Array.from(monthMap.values()).sort((a, b) => a.key.localeCompare(b.key));
-  }, [expenses, currency]);
-
   const maxCategory = categoryTotals[0]?.[1].total ?? 1;
-  const maxMonth = Math.max(...monthlyTotals.map((m) => m.total), 1);
 
   const formatAmt = (amt: number) =>
     currency === "COP" ? formatCOP(amt) : formatEUR(amt);
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
-
-  const monthLabel = now.toLocaleDateString("en-GB", { month: "long", year: "numeric" });
 
   const openBudgetModal = (category: string) => {
     const existing = getBudget(category);
@@ -295,34 +276,9 @@ export default function SummaryScreen() {
           </View>
         </View>
 
-        {/* Monthly expenses */}
-        {monthlyTotals.length > 0 && (
-          <View style={[styles.section, { borderColor: colors.border, backgroundColor: colors.card }]}>
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-              Monthly expenses
-            </Text>
-            {monthlyTotals.map((item) => (
-              <View key={item.key} style={styles.monthRow}>
-                <Text style={[styles.monthLabel, { color: colors.foreground }]}>
-                  {item.label}
-                </Text>
-                <View style={[styles.monthBarBg, { backgroundColor: colors.secondary }]}>
-                  <View
-                    style={[
-                      styles.monthBarFill,
-                      {
-                        width: `${(item.total / maxMonth) * 100}%` as any,
-                        backgroundColor: colors.primary,
-                      },
-                    ]}
-                  />
-                </View>
-                <Text style={[styles.monthAmt, { color: colors.mutedForeground }]}>
-                  {formatAmt(item.total)}
-                </Text>
-              </View>
-            ))}
-          </View>
+        {/* Trends & analytics */}
+        {expenses.length > 0 && (
+          <ExpenseAnalytics expenses={expenses} currency={currency} />
         )}
 
         {/* Category breakdown with budgets */}
@@ -600,11 +556,6 @@ const styles = StyleSheet.create({
   personName: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   personAmt: { fontSize: 14, fontFamily: "Inter_500Medium" },
   divider: { height: 1 },
-  monthRow: { gap: 6 },
-  monthLabel: { fontSize: 14, fontFamily: "Inter_500Medium" },
-  monthBarBg: { height: 6, borderRadius: 3, overflow: "hidden" },
-  monthBarFill: { height: "100%", borderRadius: 3 },
-  monthAmt: { fontSize: 13, fontFamily: "Inter_400Regular" },
   categoryRow: { gap: 5 },
   categoryMeta: {},
   categoryNameRow: {

@@ -5,7 +5,6 @@ import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
 import {
-  ActionSheetIOS,
   Alert,
   Modal,
   Platform,
@@ -105,6 +104,15 @@ export default function ExpenseDetailScreen() {
   };
 
   // ── image picker ─────────────────────────────────────────────────────
+  const storePickedBill = (asset: ImagePicker.ImagePickerAsset) => {
+    if (!asset.base64) {
+      return;
+    }
+
+    const mimeType = asset.mimeType?.trim() || "image/jpeg";
+    setBillImageBase64(`data:${mimeType};base64,${asset.base64}`);
+  };
+
   const pickFromSource = async (useCamera: boolean) => {
     if (useCamera) {
       if (Platform.OS !== "web") {
@@ -112,33 +120,45 @@ export default function ExpenseDetailScreen() {
         if (!granted) { Alert.alert("Permission needed", "Camera access is required."); return; }
       }
       const r = await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 0.6, base64: true });
-      if (!r.canceled && r.assets[0].base64) setBillImageBase64(`data:image/jpeg;base64,${r.assets[0].base64}`);
+      if (!r.canceled) storePickedBill(r.assets[0]);
     } else {
       if (Platform.OS !== "web") {
         const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!granted) { Alert.alert("Permission needed", "Photo library access is required."); return; }
       }
       const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: "images", allowsEditing: true, quality: 0.6, base64: true });
-      if (!r.canceled && r.assets[0].base64) setBillImageBase64(`data:image/jpeg;base64,${r.assets[0].base64}`);
+      if (!r.canceled) storePickedBill(r.assets[0]);
     }
   };
 
-  const handlePickBill = () => {
-    if (Platform.OS === "ios") {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options: ["Cancel", "Take Photo", "Choose from Library"], cancelButtonIndex: 0 },
-        (i) => { if (i === 1) pickFromSource(true); if (i === 2) pickFromSource(false); }
-      );
-    } else if (Platform.OS === "web") {
-      pickFromSource(false);
-    } else {
-      Alert.alert("Bill Photo", "Choose source", [
-        { text: "Cancel", style: "cancel" },
-        { text: "Take Photo", onPress: () => pickFromSource(true) },
-        { text: "Choose from Library", onPress: () => pickFromSource(false) },
-      ]);
-    }
-  };
+  const renderBillSourceButtons = () => (
+    <View style={styles.billSourceRow}>
+      <TouchableOpacity
+        style={[
+          styles.billSourceBtn,
+          { backgroundColor: colors.primary, borderColor: colors.primary },
+        ]}
+        onPress={() => void pickFromSource(true)}
+        activeOpacity={0.8}
+      >
+        <Feather name="camera" size={16} color="#fff" />
+        <Text style={styles.billSourcePrimaryText}>Take photo</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[
+          styles.billSourceBtn,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+        onPress={() => void pickFromSource(false)}
+        activeOpacity={0.8}
+      >
+        <Feather name="image" size={16} color={colors.mutedForeground} />
+        <Text style={[styles.billSourceText, { color: colors.foreground }]}>
+          Choose image
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
 
   // ── save ─────────────────────────────────────────────────────────────
   const handleSave = () => {
@@ -568,35 +588,32 @@ export default function ExpenseDetailScreen() {
           <View style={styles.field}>
             <Text style={[styles.label, { color: colors.mutedForeground }]}>Bill Photo (optional)</Text>
             {billImageBase64 ? (
-              <View style={styles.billPreviewWrap}>
-                <Image source={{ uri: billImageBase64 }} style={styles.billPreview} contentFit="cover" />
-                <TouchableOpacity
-                  style={[styles.billRemoveBtn, { backgroundColor: colors.destructive }]}
-                  onPress={() => setBillImageBase64(undefined)}
-                >
-                  <Feather name="x" size={14} color="#fff" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.billChangeBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-                  onPress={handlePickBill}
-                >
-                  <Feather name="refresh-cw" size={13} color={colors.mutedForeground} />
-                  <Text style={[styles.billChangeBtnText, { color: colors.mutedForeground }]}>Replace</Text>
-                </TouchableOpacity>
+              <View style={styles.billPickerStack}>
+                <View style={styles.billPreviewWrap}>
+                  <Image source={{ uri: billImageBase64 }} style={styles.billPreview} contentFit="cover" />
+                  <TouchableOpacity
+                    style={[styles.billRemoveBtn, { backgroundColor: colors.destructive }]}
+                    onPress={() => setBillImageBase64(undefined)}
+                  >
+                    <Feather name="x" size={14} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+                {renderBillSourceButtons()}
               </View>
             ) : (
-              <TouchableOpacity
+              <View
                 style={[styles.billPicker, { backgroundColor: colors.secondary, borderColor: colors.border }]}
-                onPress={handlePickBill} activeOpacity={0.7}
               >
                 <View style={[styles.billPickerIcon, { backgroundColor: colors.primary + "22" }]}>
                   <Feather name="camera" size={22} color={colors.primary} />
                 </View>
-                <Text style={[styles.billPickerText, { color: colors.mutedForeground }]}>
-                  {Platform.OS === "web" ? "Upload photo" : "Take photo or choose from library"}
-                </Text>
-                <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
-              </TouchableOpacity>
+                <View style={styles.billPickerContent}>
+                  <Text style={[styles.billPickerText, { color: colors.mutedForeground }]}>
+                    Take a photo or choose a receipt image
+                  </Text>
+                  {renderBillSourceButtons()}
+                </View>
+              </View>
             )}
           </View>
 
@@ -762,11 +779,26 @@ const styles = StyleSheet.create({
   billPicker: { flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1.5, borderStyle: "dashed", borderRadius: 14, padding: 16 },
   billPickerIcon: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   billPickerText: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular" },
+  billPickerContent: { flex: 1, gap: 10 },
+  billPickerStack: { gap: 10 },
+  billSourceRow: { flexDirection: "row", gap: 8 },
+  billSourceBtn: {
+    flex: 1,
+    minHeight: 42,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  billSourcePrimaryText: { color: "#fff", fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  billSourceText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
   billPreviewWrap: { position: "relative", borderRadius: 14, overflow: "visible" },
   billPreview: { width: "100%", height: 200, borderRadius: 14 },
   billRemoveBtn: { position: "absolute", top: 8, right: 8, width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  billChangeBtn: { position: "absolute", bottom: 8, right: 8, flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, borderWidth: 1 },
-  billChangeBtnText: { fontSize: 12, fontFamily: "Inter_500Medium" },
   // Status
   statusBar: {
     flexDirection: "row",

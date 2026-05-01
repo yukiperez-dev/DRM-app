@@ -69,7 +69,10 @@ router.put("/expenses/:id", async (req, res) => {
       })
       .where(eq(expensesTable.id, id))
       .returning();
-    if (!expense) return res.status(404).json({ error: "Expense not found" });
+    if (!expense) {
+      res.status(404).json({ error: "Expense not found" });
+      return;
+    }
     res.json(expense);
   } catch (err) {
     res.status(500).json({ error: "Failed to update expense" });
@@ -83,7 +86,10 @@ router.patch("/expenses/:id/toggle-paid", async (req, res) => {
       .select()
       .from(expensesTable)
       .where(eq(expensesTable.id, id));
-    if (!current) return res.status(404).json({ error: "Expense not found" });
+    if (!current) {
+      res.status(404).json({ error: "Expense not found" });
+      return;
+    }
     const [expense] = await db
       .update(expensesTable)
       .set({ isPaid: !current.isPaid, updatedAt: new Date() })

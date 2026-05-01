@@ -9,28 +9,30 @@ import { useColors } from "@/hooks/useColors";
 export default function GroceryScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const isWeb = Platform.OS === "web";
   const ctx = useGrocery();
 
-  const topPadding = Platform.OS === "web" ? 67 : insets.top;
-  const bottomPadding = Platform.OS === "web" ? 100 : insets.bottom + 100;
+  const topPadding = isWeb ? Math.max(insets.top, 12) : insets.top;
+  const bottomPadding = isWeb ? 100 : insets.bottom + 100;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View
         style={[
           styles.header,
+          isWeb && styles.headerWeb,
           {
-            paddingTop: topPadding + 16,
+            paddingTop: topPadding + (isWeb ? 8 : 16),
             backgroundColor: colors.background,
             borderBottomColor: colors.border,
           },
         ]}
       >
         <View>
-          <Text style={[styles.greeting, { color: colors.mutedForeground }]}>
+          <Text style={[styles.greeting, isWeb && styles.greetingWeb, { color: colors.mutedForeground }]}>
             Juanfe & Yukita
           </Text>
-          <Text style={[styles.title, { color: colors.foreground }]}>
+          <Text style={[styles.title, isWeb && styles.titleWeb, { color: colors.foreground }]}>
             Grocery list
           </Text>
         </View>
@@ -52,7 +54,10 @@ export default function GroceryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: {
+    flex: 1,
+    minHeight: 0,
+  },
   header: {
     flexDirection: "row",
     alignItems: "flex-end",
@@ -61,13 +66,26 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     borderBottomWidth: 1,
   },
+  headerWeb: {
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+  },
   greeting: {
     fontSize: 13,
     fontFamily: "Inter_400Regular",
     marginBottom: 2,
   },
+  greetingWeb: {
+    fontSize: 12,
+    marginBottom: 0,
+  },
   title: {
     fontSize: 28,
     fontFamily: "Inter_700Bold",
+  },
+  titleWeb: {
+    fontSize: 24,
+    lineHeight: 30,
   },
 });
