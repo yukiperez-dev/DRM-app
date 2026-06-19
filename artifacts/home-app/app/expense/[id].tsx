@@ -3,7 +3,7 @@ import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
   Modal,
@@ -36,7 +36,7 @@ export default function ExpenseDetailScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { expenses, updateExpense, togglePaid, deleteExpense } = useExpenses();
+  const { expenses, updateExpense, togglePaid, deleteExpense, fetchExpenseDetail } = useExpenses();
 
   const expense = expenses.find((e) => e.id === id);
 
@@ -65,6 +65,26 @@ export default function ExpenseDetailScreen() {
   const [billModalVisible, setBillModalVisible] = useState(false);
   const [error, setError] = useState("");
   const [isEditing, setIsEditing] = useState(false);
+
+  useEffect(() => {
+    let isActive = true;
+
+    if (!id || !expense?.hasBill || expense.billImageBase64) {
+      return;
+    }
+
+    fetchExpenseDetail(id)
+      .then((fullExpense) => {
+        if (isActive) setBillImageBase64(fullExpense.billImageBase64);
+      })
+      .catch((err) => {
+        console.error("Failed to load expense detail", err);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [expense?.billImageBase64, expense?.hasBill, fetchExpenseDetail, id]);
 
   if (!expense) {
     return (

@@ -29,6 +29,7 @@ export interface Expense {
   date: string;
   note?: string;
   billImageBase64?: string;
+  hasBill?: boolean;
   recurringExpenseId?: string;
 }
 
@@ -139,6 +140,7 @@ interface ExpensesContextType {
   deleteExpense: (id: string) => Promise<void>;
   deleteSettlement: (id: string) => Promise<void>;
   refreshExpenses: () => Promise<void>;
+  fetchExpenseDetail: (id: string) => Promise<Expense>;
   getBalance: (currency: Currency) => Balance;
   loading: boolean;
 }
@@ -163,6 +165,7 @@ function dbRowToExpense(row: any): Expense {
     date: row.date,
     note: row.note ?? undefined,
     billImageBase64: row.billImageBase64 ?? row.bill_image_base64 ?? undefined,
+    hasBill: row.hasBill ?? row.has_bill ?? Boolean(row.billImageBase64 ?? row.bill_image_base64),
     recurringExpenseId: row.recurringExpenseId ?? row.recurring_expense_id ?? undefined,
   };
 }
@@ -200,7 +203,7 @@ export function ExpensesProvider({ children }: { children: React.ReactNode }) {
         settlementsRes.json(),
       ]);
 
-      setExpenses((expensesData as any[]).map(dbRowToExpense).reverse());
+      setExpenses((expensesData as any[]).map(dbRowToExpense));
       setSettlements((settlementsData as any[]).map(dbRowToSettlement).reverse());
     } catch (err) {
       console.error("Failed to load expense data from API", err);
@@ -241,6 +244,19 @@ export function ExpensesProvider({ children }: { children: React.ReactNode }) {
       if (!res.ok) throw new Error("Failed to update expense");
       const updated = dbRowToExpense(await res.json());
       setExpenses((prev) => prev.map((e) => (e.id === id ? updated : e)));
+    },
+    [apiBase]
+  );
+
+  const fetchExpenseDetail = useCallback(
+    async (id: string) => {
+      const res = await fetch(`${apiBase}/expenses/${id}`, { cache: "no-store" });
+      if (!res.ok) throw new Error("Failed to fetch expense");
+      const fetched = dbRowToExpense(await res.json());
+      setExpenses((prev) =>
+        prev.map((expense) => (expense.id === id ? { ...expense, ...fetched } : expense))
+      );
+      return fetched;
     },
     [apiBase]
   );
@@ -395,6 +411,7 @@ export function ExpensesProvider({ children }: { children: React.ReactNode }) {
         deleteExpense,
         deleteSettlement,
         refreshExpenses: fetchExpenses,
+        fetchExpenseDetail,
         getBalance,
         loading,
       }}

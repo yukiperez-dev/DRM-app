@@ -1,18 +1,55 @@
 import { Router } from "express";
 import { db, expensesTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 
 const router = Router();
 
 router.get("/expenses", async (req, res) => {
   try {
     const expenses = await db
-      .select()
+      .select({
+        id: expensesTable.id,
+        title: expensesTable.title,
+        amount: expensesTable.amount,
+        currency: expensesTable.currency,
+        category: expensesTable.category,
+        paidBy: expensesTable.paidBy,
+        juanfePaidAmount: expensesTable.juanfePaidAmount,
+        yukitaPaidAmount: expensesTable.yukitaPaidAmount,
+        splitType: expensesTable.splitType,
+        juanfeSplitPct: expensesTable.juanfeSplitPct,
+        isPaid: expensesTable.isPaid,
+        date: expensesTable.date,
+        note: expensesTable.note,
+        hasBill: sql<boolean>`${expensesTable.billImageBase64} is not null`,
+        recurringExpenseId: expensesTable.recurringExpenseId,
+        createdAt: expensesTable.createdAt,
+        updatedAt: expensesTable.updatedAt,
+      })
       .from(expensesTable)
-      .orderBy(expensesTable.createdAt);
+      .orderBy(desc(expensesTable.createdAt));
     res.json(expenses);
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch expenses" });
+  }
+});
+
+router.get("/expenses/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [expense] = await db
+      .select()
+      .from(expensesTable)
+      .where(eq(expensesTable.id, id));
+
+    if (!expense) {
+      res.status(404).json({ error: "Expense not found" });
+      return;
+    }
+
+    res.json(expense);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch expense" });
   }
 });
 
