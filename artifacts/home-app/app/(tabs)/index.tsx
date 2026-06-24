@@ -1,7 +1,7 @@
-import { Feather } from "@expo/vector-icons";
+import Feather from "@expo/vector-icons/Feather";
 import * as Haptics from "expo-haptics";
-import { router } from "expo-router";
-import React, { useMemo, useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -16,9 +16,6 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ExpenseCard } from "@/components/ExpenseCard";
-import { RecurringSection } from "@/components/RecurringSection";
-import { SummarySection } from "@/components/SummarySection";
-import { BudgetsSection } from "@/components/BudgetsSection";
 import { CurrencyToggle } from "@/components/CurrencyToggle";
 import { CATEGORIES, Currency, Expense, useExpenses } from "@/context/ExpensesContext";
 import { useColors } from "@/hooks/useColors";
@@ -27,6 +24,29 @@ const ALL = "All";
 const PENDING = "Pending";
 type Tab = "Expenses" | "Recurring" | "Budgets" | "Summary";
 const TABS: Tab[] = ["Expenses", "Recurring", "Budgets", "Summary"];
+
+function normalizeTabParam(value: string | string[] | undefined): Tab | null {
+  const tab = Array.isArray(value) ? value[0] : value;
+  if (!tab) return null;
+  const lowerTab = tab.toLowerCase();
+  return TABS.find((candidate) => candidate.toLowerCase() === lowerTab) ?? null;
+}
+
+const LazyRecurringSection = React.lazy(() =>
+  import("@/components/RecurringSection").then((module) => ({
+    default: module.RecurringSection,
+  }))
+);
+const LazyBudgetsSection = React.lazy(() =>
+  import("@/components/BudgetsSection").then((module) => ({
+    default: module.BudgetsSection,
+  }))
+);
+const LazySummarySection = React.lazy(() =>
+  import("@/components/SummarySection").then((module) => ({
+    default: module.SummarySection,
+  }))
+);
 
 interface ExpenseSection {
   key: string;
@@ -74,11 +94,30 @@ function buildExpenseSections(expenses: Expense[]): ExpenseSection[] {
     }));
 }
 
+function DeferredSectionFallback({ bottomPadding }: { bottomPadding: number }) {
+  const colors = useColors();
+
+  return (
+    <View style={[styles.empty, { paddingBottom: bottomPadding }]}>
+      <ActivityIndicator size="small" color={colors.primary} />
+    </View>
+  );
+}
+
 export default function ExpensesScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
-  const { expenses, deleteExpense, loading } = useExpenses();
+  const params = useLocalSearchParams<{ tab?: string | string[] }>();
+  const {
+    expenses,
+    deleteExpense,
+    loading,
+    loadingMoreExpenses,
+    hasMoreExpenses,
+    loadMoreExpenses,
+    setExpenseFilters,
+  } = useExpenses();
   const [selectedCategory, setSelectedCategory] = useState<string>(ALL);
   const [activeTab, setActiveTab] = useState<Tab>("Expenses");
   const [currency, setCurrency] = useState<Currency>("COP");
@@ -89,6 +128,27 @@ export default function ExpensesScreen() {
     () => expenses.filter((e) => e.isPaid === false).length,
     [expenses]
   );
+
+  useEffect(() => {
+    const tabFromRoute = normalizeTabParam(params.tab);
+    if (tabFromRoute && tabFromRoute !== activeTab) {
+      setActiveTab(tabFromRoute);
+    }
+  }, [activeTab, params.tab]);
+
+  useEffect(() => {
+    if (selectedCategory === PENDING) {
+      setExpenseFilters({ isPaid: false });
+      return;
+    }
+
+    if (selectedCategory === ALL) {
+      setExpenseFilters({});
+      return;
+    }
+
+    setExpenseFilters({ category: selectedCategory });
+  }, [selectedCategory, setExpenseFilters]);
 
   const filtered = useMemo(() => {
     if (selectedCategory === ALL) return expenses;
@@ -265,6 +325,22 @@ export default function ExpensesScreen() {
               contentContainerStyle={[styles.list, { paddingBottom: bottomPadding }]}
               showsVerticalScrollIndicator={false}
               scrollEnabled={expenseSections.length > 0}
+              onEndReached={() => {
+                if (hasMoreExpenses && !loadingMoreExpenses) {
+                  void loadMoreExpenses();
+                }
+              }}
+              onEndReachedThreshold={0.45}
+              ListFooterComponent={
+                loadingMoreExpenses ? (
+                  <View style={styles.listFooter}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                    <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+                      Loading more expenses...
+                    </Text>
+                  </View>
+                ) : null
+              }
               stickySectionHeadersEnabled={false}
               ListEmptyComponent={
                 loading ? (
@@ -291,15 +367,21 @@ export default function ExpensesScreen() {
         )}
 
         {activeTab === "Recurring" && (
-          <RecurringSection bottomPadding={bottomPadding} />
+          <React.Suspense fallback={<DeferredSectionFallback bottomPadding={bottomPadding} />}>
+            <LazyRecurringSection bottomPadding={bottomPadding} />
+          </React.Suspense>
         )}
 
         {activeTab === "Budgets" && (
-          <BudgetsSection bottomPadding={bottomPadding} currency={currency} />
+          <React.Suspense fallback={<DeferredSectionFallback bottomPadding={bottomPadding} />}>
+            <LazyBudgetsSection bottomPadding={bottomPadding} currency={currency} />
+          </React.Suspense>
         )}
 
         {activeTab === "Summary" && (
-          <SummarySection bottomPadding={bottomPadding} currency={currency} />
+          <React.Suspense fallback={<DeferredSectionFallback bottomPadding={bottomPadding} />}>
+            <LazySummarySection bottomPadding={bottomPadding} currency={currency} />
+          </React.Suspense>
         )}
       </View>
     </View>
@@ -406,6 +488,12 @@ const styles = StyleSheet.create({
   list: {
     paddingHorizontal: 16,
     paddingTop: 12,
+  },
+  listFooter: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 18,
   },
   sectionHeader: {
     paddingTop: 6,

@@ -1,6 +1,7 @@
-import { Feather } from "@expo/vector-icons";
-import React, { useMemo, useState } from "react";
+import Feather from "@expo/vector-icons/Feather";
+import React, { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   LayoutChangeEvent,
   ScrollView,
   StyleSheet,
@@ -18,15 +19,18 @@ import Svg, {
 } from "react-native-svg";
 
 import {
+  AnalyticsRange,
   Currency,
   Expense,
+  analyticsSummaryKey,
   convertAmount,
   formatCOP,
   formatEUR,
+  useExpenses,
 } from "@/context/ExpensesContext";
 import { useColors } from "@/hooks/useColors";
 
-type Range = "3M" | "6M" | "12M" | "ALL";
+type Range = AnalyticsRange;
 
 const RANGES: { id: Range; label: string; months: number | null }[] = [
   { id: "3M", label: "3M", months: 3 },
@@ -163,18 +167,34 @@ function buildBuckets(
 }
 
 interface AnalyticsProps {
-  expenses: Expense[];
+  expenses?: Expense[];
   currency: Currency;
 }
 
 export function ExpenseAnalytics({ expenses, currency }: AnalyticsProps) {
   const colors = useColors();
+  const {
+    analyticsSummaries,
+    analyticsLoading,
+    analyticsRevision,
+    loadAnalyticsSummary,
+  } = useExpenses();
   const [range, setRange] = useState<Range>("6M");
   const [containerWidth, setContainerWidth] = useState(320);
+  const summaryKey = analyticsSummaryKey(range, currency);
+  const summary = analyticsSummaries[summaryKey];
+  const isLoading = Boolean(analyticsLoading[summaryKey]) && !summary;
+
+  useEffect(() => {
+    void loadAnalyticsSummary(range, currency);
+  }, [analyticsRevision, currency, loadAnalyticsSummary, range]);
 
   const buckets = useMemo(
-    () => buildBuckets(expenses, currency, range),
-    [expenses, currency, range]
+    () =>
+      summary
+        ? summary.monthBuckets
+        : buildBuckets(expenses ?? [], currency, range),
+    [currency, expenses, range, summary]
   );
 
   const orderedCategories = useMemo(() => {
@@ -273,7 +293,14 @@ export function ExpenseAnalytics({ expenses, currency }: AnalyticsProps) {
         })}
       </View>
 
-      {!hasData ? (
+      {isLoading ? (
+        <View style={styles.emptyBlock}>
+          <ActivityIndicator size="small" color={colors.primary} />
+          <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
+            Loading trends...
+          </Text>
+        </View>
+      ) : !hasData ? (
         <View style={styles.emptyBlock}>
           <Feather
             name="bar-chart-2"

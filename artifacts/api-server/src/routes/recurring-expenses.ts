@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, recurringExpensesTable, expensesTable } from "@workspace/db";
-import { eq, and, like } from "drizzle-orm";
+import { eq, and, gte, lt } from "drizzle-orm";
 
 const router = Router();
 
@@ -178,6 +178,10 @@ router.post("/recurring-expenses/generate", async (req, res) => {
 
     const monthStr = String(month).padStart(2, "0");
     const monthPrefix = `${year}-${monthStr}`;
+    const nextMonthDate = new Date(Date.UTC(Number(year), Number(month), 1));
+    const nextMonthPrefix = `${nextMonthDate.getUTCFullYear()}-${String(
+      nextMonthDate.getUTCMonth() + 1,
+    ).padStart(2, "0")}`;
 
     const activeRecurring = await db
       .select()
@@ -194,7 +198,8 @@ router.post("/recurring-expenses/generate", async (req, res) => {
         .where(
           and(
             eq(expensesTable.recurringExpenseId, recurring.id),
-            like(expensesTable.date, `${monthPrefix}%`)
+            gte(expensesTable.date, monthPrefix),
+            lt(expensesTable.date, nextMonthPrefix),
           )
         );
 

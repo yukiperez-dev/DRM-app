@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { spawnSync } = require("child_process");
+const zlib = require("zlib");
 
 const projectRoot = path.resolve(__dirname, "..");
 const outputDir = path.join(projectRoot, "dist");
@@ -16,6 +17,19 @@ function normalizeBasePath(input) {
 }
 
 const basePath = normalizeBasePath(process.env.BASE_PATH);
+
+const COMPRESSIBLE_EXTENSIONS = new Set([
+  ".css",
+  ".html",
+  ".js",
+  ".json",
+  ".map",
+  ".mjs",
+  ".svg",
+  ".txt",
+  ".webmanifest",
+  ".xml",
+]);
 
 function toPublicPath(relativePath) {
   return `${basePath}/${relativePath}`.replace(/\/{2,}/g, "/");
@@ -62,6 +76,52 @@ function walkFiles(dir) {
   return files;
 }
 
+function isCompressedSidecar(relativePath) {
+  return relativePath.endsWith(".br") || relativePath.endsWith(".gz");
+}
+
+function shouldPrecompress(filePath) {
+  const relativePath = path.relative(outputDir, filePath).split(path.sep).join("/");
+  const ext = path.extname(filePath).toLowerCase();
+
+  return (
+    !isCompressedSidecar(relativePath) &&
+    COMPRESSIBLE_EXTENSIONS.has(ext) &&
+    fs.statSync(filePath).size > 0
+  );
+}
+
+function writeCompressedSidecars() {
+  for (const filePath of walkFiles(outputDir)) {
+    const relativePath = path.relative(outputDir, filePath).split(path.sep).join("/");
+    if (isCompressedSidecar(relativePath)) {
+      fs.unlinkSync(filePath);
+    }
+  }
+
+  let compressedFileCount = 0;
+
+  for (const filePath of walkFiles(outputDir)) {
+    if (!shouldPrecompress(filePath)) {
+      continue;
+    }
+
+    const input = fs.readFileSync(filePath);
+    const brotli = zlib.brotliCompressSync(input, {
+      params: {
+        [zlib.constants.BROTLI_PARAM_QUALITY]: 11,
+      },
+    });
+    const gzip = zlib.gzipSync(input, { level: 9 });
+
+    fs.writeFileSync(`${filePath}.br`, brotli);
+    fs.writeFileSync(`${filePath}.gz`, gzip);
+    compressedFileCount += 1;
+  }
+
+  return compressedFileCount;
+}
+
 function writeManifest(appConfig) {
   fs.copyFileSync(iconSourcePath, path.join(outputDir, "pwa-icon.png"));
 
@@ -96,7 +156,9 @@ function buildPrecacheUrls() {
     .map((filePath) => path.relative(outputDir, filePath).split(path.sep).join("/"))
     .filter(
       (relativePath) =>
-        relativePath !== "service-worker.js" && relativePath !== "manifest.webmanifest",
+        !isCompressedSidecar(relativePath) &&
+        relativePath !== "service-worker.js" &&
+        relativePath !== "manifest.webmanifest",
     );
 
   const urls = new Set([`${basePath || "/"}/`.replace(/\/{2,}/g, "/")]);
@@ -247,8 +309,11 @@ function main() {
   writeManifest(appConfig);
   writeServiceWorker(appConfig);
   injectPwaMarkup();
+  const compressedFileCount = writeCompressedSidecars();
 
-  console.log("Web export complete with PWA manifest and service worker.");
+  console.log(
+    `Web export complete with PWA manifest, service worker, and ${compressedFileCount} precompressed assets.`,
+  );
 }
 
 main();

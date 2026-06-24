@@ -1,6 +1,7 @@
-import { Feather } from "@expo/vector-icons";
-import React, { useMemo, useState } from "react";
+import Feather from "@expo/vector-icons/Feather";
+import React, { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Modal,
@@ -15,8 +16,10 @@ import {
 } from "react-native";
 
 import {
+  AnalyticsRange,
   CATEGORIES,
   Currency,
+  analyticsSummaryKey,
   convertAmount,
   formatCOP,
   formatEUR,
@@ -24,6 +27,8 @@ import {
 } from "@/context/ExpensesContext";
 import { useBudgets } from "@/context/BudgetsContext";
 import { useColors } from "@/hooks/useColors";
+
+const BUDGET_ANALYTICS_RANGE: AnalyticsRange = "ALL";
 
 export function BudgetsSection({
   bottomPadding,
@@ -33,8 +38,13 @@ export function BudgetsSection({
   currency: Currency;
 }) {
   const colors = useColors();
-  const { expenses } = useExpenses();
-  const { getBudget, setBudget, removeBudget } = useBudgets();
+  const {
+    analyticsSummaries,
+    analyticsLoading,
+    analyticsRevision,
+    loadAnalyticsSummary,
+  } = useExpenses();
+  const { getBudget, setBudget, removeBudget, ensureBudgetsLoaded } = useBudgets();
 
   const [budgetModal, setBudgetModal] = useState<{ category: string } | null>(null);
   const [budgetInput, setBudgetInput] = useState("");
@@ -43,39 +53,53 @@ export function BudgetsSection({
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth();
+  const currentMonthKey = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`;
+  const summaryKey = analyticsSummaryKey(BUDGET_ANALYTICS_RANGE, currency);
+  const summary = analyticsSummaries[summaryKey];
+  const summaryLoading = Boolean(analyticsLoading[summaryKey]) && !summary;
 
-  const thisMonthExpenses = useMemo(
-    () =>
-      expenses.filter((e) => {
-        const d = new Date(e.date);
-        return d.getUTCFullYear() === currentYear && d.getUTCMonth() === currentMonth;
-      }),
-    [expenses, currentYear, currentMonth]
-  );
+  useEffect(() => {
+    void ensureBudgetsLoaded();
+  }, [ensureBudgetsLoaded]);
+
+  useEffect(() => {
+    void loadAnalyticsSummary(BUDGET_ANALYTICS_RANGE, currency);
+  }, [analyticsRevision, currency, loadAnalyticsSummary]);
 
   const categoryTotals = useMemo(() => {
     const totals: Record<string, { juanfe: number; yukita: number; total: number; thisMonth: number }> = {};
     for (const cat of CATEGORIES) {
       totals[cat] = { juanfe: 0, yukita: 0, total: 0, thisMonth: 0 };
     }
-    for (const e of expenses) {
-      const amt = convertAmount(e.amount, e.currency, currency);
-      if (!totals[e.category]) {
-        totals[e.category] = { juanfe: 0, yukita: 0, total: 0, thisMonth: 0 };
-      }
-      totals[e.category].total += amt;
-      if (e.paidBy === "Juanfe") totals[e.category].juanfe += amt;
-      else totals[e.category].yukita += amt;
+
+    if (!summary) {
+      return Object.entries(totals);
     }
-    for (const e of thisMonthExpenses) {
-      const amt = convertAmount(e.amount, e.currency, currency);
-      if (!totals[e.category]) {
-        totals[e.category] = { juanfe: 0, yukita: 0, total: 0, thisMonth: 0 };
+
+    for (const row of summary.categoryTotals) {
+      if (!totals[row.category]) {
+        totals[row.category] = { juanfe: 0, yukita: 0, total: 0, thisMonth: 0 };
       }
-      totals[e.category].thisMonth += amt;
+      totals[row.category].total = row.total;
+      totals[row.category].thisMonth = row.thisMonth;
+      totals[row.category].juanfe = row.juanfe;
+      totals[row.category].yukita = row.yukita;
     }
+
+    const currentBucket = summary.monthBuckets.find(
+      (bucket) => bucket.key === currentMonthKey
+    );
+    if (currentBucket) {
+      for (const [category, amount] of Object.entries(currentBucket.byCategory)) {
+        if (!totals[category]) {
+          totals[category] = { juanfe: 0, yukita: 0, total: 0, thisMonth: 0 };
+        }
+        totals[category].thisMonth = amount;
+      }
+    }
+
     return Object.entries(totals).sort((a, b) => b[1].total - a[1].total);
-  }, [expenses, thisMonthExpenses, currency]);
+  }, [currentMonthKey, summary]);
 
   const formatAmt = (amt: number) =>
     currency === "COP" ? formatCOP(amt) : formatEUR(amt);
@@ -148,7 +172,15 @@ export function BudgetsSection({
         </View>
 
         <View style={[styles.section, { borderColor: colors.border, backgroundColor: colors.card }]}>
-          {categoryTotals.map(([cat, vals], index) => {
+          {summaryLoading && (
+            <View style={styles.loadingRow}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={[styles.noBudgetText, { color: colors.mutedForeground }]}>
+                Loading budget totals...
+              </Text>
+            </View>
+          )}
+          {!summaryLoading && categoryTotals.map(([cat, vals], index) => {
             const budget = getBudget(cat);
             const budgetAmt = budget
               ? convertAmount(budget.amount, budget.currency, currency)
@@ -333,6 +365,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: 14,
   },
+  loadingRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   divider: { height: 1 },
   categoryRow: { gap: 8 },
   categoryTopRow: {
