@@ -1,5 +1,5 @@
-import { Feather } from "@expo/vector-icons";
-import React, { useState } from "react";
+import Feather from "@expo/vector-icons/Feather";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -17,8 +17,10 @@ import {
 import DatePickerField from "@/components/DatePickerField";
 import { ExpenseAnalytics } from "@/components/ExpenseAnalytics";
 import {
+  AnalyticsRange,
   Currency,
   Person,
+  analyticsSummaryKey,
   convertAmount,
   formatCOP,
   formatDateEU,
@@ -33,6 +35,8 @@ function formatSettlementInput(amount: number, currency: Currency): string {
     : amount.toFixed(2).replace(/\.00$/, "");
 }
 
+const SUMMARY_RANGE: AnalyticsRange = "ALL";
+
 export function SummarySection({
   bottomPadding,
   currency,
@@ -41,7 +45,17 @@ export function SummarySection({
   currency: Currency;
 }) {
   const colors = useColors();
-  const { expenses, settlements, getBalance, addSettlement, deleteSettlement } = useExpenses();
+  const {
+    settlements,
+    settlementsLoading,
+    loadSettlements,
+    addSettlement,
+    deleteSettlement,
+    analyticsSummaries,
+    analyticsLoading,
+    analyticsRevision,
+    loadAnalyticsSummary,
+  } = useExpenses();
   const [settlementModalOpen, setSettlementModalOpen] = useState(false);
   const [settlementFromPerson, setSettlementFromPerson] = useState<Person>("Juanfe");
   const [settlementAmount, setSettlementAmount] = useState("");
@@ -52,7 +66,26 @@ export function SummarySection({
   const [settlementNote, setSettlementNote] = useState("");
   const [settlementSaving, setSettlementSaving] = useState(false);
 
-  const balance = getBalance(currency);
+  const summaryKey = analyticsSummaryKey(SUMMARY_RANGE, currency);
+  const summary = analyticsSummaries[summaryKey];
+  const summaryLoading = Boolean(analyticsLoading[summaryKey]);
+  const balance = summary?.balance ?? {
+    juanfeOwes: 0,
+    yukitaOwes: 0,
+    netOwer: null,
+    netAmount: 0,
+    currency,
+    hasPending: false,
+  };
+  const paidTotals = summary?.paidTotals ?? { Juanfe: 0, Yukita: 0 };
+
+  useEffect(() => {
+    void loadAnalyticsSummary(SUMMARY_RANGE, currency);
+  }, [analyticsRevision, currency, loadAnalyticsSummary]);
+
+  useEffect(() => {
+    void loadSettlements();
+  }, [loadSettlements]);
 
   const formatAmt = (amount: number) =>
     currency === "COP" ? formatCOP(amount) : formatEUR(amount);
@@ -157,7 +190,7 @@ export function SummarySection({
                 You're all settled!
               </Text>
               <Text style={[styles.balanceSub, { color: colors.mutedForeground }]}>
-                No one owes anything
+                {summaryLoading && !summary ? "Loading summary..." : "No one owes anything"}
               </Text>
             </View>
           ) : (
@@ -232,7 +265,11 @@ export function SummarySection({
             </TouchableOpacity>
           </View>
 
-          {settlements.length === 0 ? (
+          {settlementsLoading && settlements.length === 0 ? (
+            <Text style={[styles.emptySectionText, { color: colors.mutedForeground }]}>
+              Loading settlements...
+            </Text>
+          ) : settlements.length === 0 ? (
             <Text style={[styles.emptySectionText, { color: colors.mutedForeground }]}>
               Record payments between Juanfe and Yukita here. Each settlement is included
               in the balance above.
@@ -280,15 +317,7 @@ export function SummarySection({
               <Text style={[styles.personName, { color: colors.juanfe }]}>Juanfe</Text>
             </View>
             <Text style={[styles.personAmt, { color: colors.foreground }]}>
-              {formatAmt(
-                expenses
-                  .filter((expense) => expense.paidBy === "Juanfe")
-                  .reduce(
-                    (total, expense) =>
-                      total + convertAmount(expense.amount, expense.currency, currency),
-                    0
-                  )
-              )}
+              {formatAmt(paidTotals.Juanfe)}
             </Text>
           </View>
           <View style={[styles.divider, { backgroundColor: colors.border }]} />
@@ -298,24 +327,16 @@ export function SummarySection({
               <Text style={[styles.personName, { color: colors.yukita }]}>Yukita</Text>
             </View>
             <Text style={[styles.personAmt, { color: colors.foreground }]}>
-              {formatAmt(
-                expenses
-                  .filter((expense) => expense.paidBy === "Yukita")
-                  .reduce(
-                    (total, expense) =>
-                      total + convertAmount(expense.amount, expense.currency, currency),
-                    0
-                  )
-              )}
+              {formatAmt(paidTotals.Yukita)}
             </Text>
           </View>
         </View>
 
-        {expenses.length > 0 && (
-          <ExpenseAnalytics expenses={expenses} currency={currency} />
+        {(summaryLoading || summary?.hasExpenses) && (
+          <ExpenseAnalytics currency={currency} />
         )}
 
-        {expenses.length === 0 && settlements.length === 0 && (
+        {!summaryLoading && !summary?.hasExpenses && settlements.length === 0 && (
           <View style={styles.emptyState}>
             <Feather name="bar-chart-2" size={48} color={colors.mutedForeground} />
             <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No data yet</Text>

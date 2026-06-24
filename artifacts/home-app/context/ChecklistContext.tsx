@@ -4,6 +4,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { getApiBase } from "../lib/api";
@@ -28,6 +29,7 @@ interface ChecklistContextType {
   deleteItem: (id: string) => Promise<void>;
   clearCompleted: () => Promise<void>;
   refreshItems: () => Promise<void>;
+  ensureItemsLoaded: () => Promise<void>;
   loading: boolean;
 }
 
@@ -63,26 +65,41 @@ function createChecklistContext(listKey: "todo" | "grocery") {
   function Provider({ children }: { children: React.ReactNode }) {
     const [items, setItems] = useState<ChecklistItem[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loaded, setLoaded] = useState(false);
+    const inFlightRef = useRef<Promise<void> | null>(null);
     const apiBase = useMemo(() => getApiBase(), []);
 
     const fetchItems = useCallback(async () => {
-      try {
-        const res = await fetch(`${apiBase}/checklist/${listKey}`, { cache: "no-store" });
-        if (!res.ok) throw new Error("Failed to fetch");
-        const data = await res.json();
-        setItems(sortItems((data as any[]).map(rowToItem)));
-      } catch (err) {
-        console.error(`Failed to load ${listKey} items`, err);
-      } finally {
-        setLoading(false);
+      if (inFlightRef.current) {
+        return inFlightRef.current;
       }
+
+      setLoading(true);
+      const request = (async () => {
+        try {
+          const res = await fetch(`${apiBase}/checklist/${listKey}`, { cache: "no-store" });
+          if (!res.ok) throw new Error("Failed to fetch");
+          const data = await res.json();
+          setItems(sortItems((data as any[]).map(rowToItem)));
+          setLoaded(true);
+        } catch (err) {
+          console.error(`Failed to load ${listKey} items`, err);
+        } finally {
+          setLoading(false);
+          inFlightRef.current = null;
+        }
+      })();
+
+      inFlightRef.current = request;
+      return request;
     }, [apiBase]);
 
-    useEffect(() => {
-      fetchItems();
-    }, [fetchItems]);
+    const ensureItemsLoaded = useCallback(async () => {
+      if (loaded) return;
+      await fetchItems();
+    }, [fetchItems, loaded]);
 
-    useRevalidateOnActive(fetchItems);
+    useRevalidateOnActive(fetchItems, { enabled: loaded });
 
     const addItem = useCallback(
       async (text: string, opts?: { category?: string; dueDate?: string }) => {
@@ -101,6 +118,7 @@ function createChecklistContext(listKey: "todo" | "grocery") {
         });
         if (!res.ok) throw new Error("Failed to create item");
         const created = rowToItem(await res.json());
+        setLoaded(true);
         setItems((prev) => sortItems([created, ...prev]));
       },
       [apiBase]
@@ -115,6 +133,7 @@ function createChecklistContext(listKey: "todo" | "grocery") {
         });
         if (!res.ok) throw new Error("Failed to update item");
         const updated = rowToItem(await res.json());
+        setLoaded(true);
         setItems((prev) => prev.map((it) => (it.id === id ? updated : it)));
       },
       [apiBase]
@@ -127,6 +146,7 @@ function createChecklistContext(listKey: "todo" | "grocery") {
         });
         if (!res.ok) throw new Error("Failed to toggle item");
         const updated = rowToItem(await res.json());
+        setLoaded(true);
         setItems((prev) => prev.map((it) => (it.id === id ? updated : it)));
       },
       [apiBase]
@@ -161,6 +181,7 @@ function createChecklistContext(listKey: "todo" | "grocery") {
           method: "DELETE",
         });
         if (!res.ok) throw new Error("Failed to delete item");
+        setLoaded(true);
         setItems((prev) => prev.filter((it) => it.id !== id));
       },
       [apiBase]
@@ -171,6 +192,7 @@ function createChecklistContext(listKey: "todo" | "grocery") {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Failed to clear completed");
+      setLoaded(true);
       setItems((prev) => prev.filter((it) => !it.done));
     }, [apiBase]);
 
@@ -186,6 +208,7 @@ function createChecklistContext(listKey: "todo" | "grocery") {
           deleteItem,
           clearCompleted,
           refreshItems: fetchItems,
+          ensureItemsLoaded,
           loading,
         }}
       >
@@ -199,6 +222,9 @@ function createChecklistContext(listKey: "todo" | "grocery") {
     if (!ctx) {
       throw new Error(`Checklist provider for ${listKey} not found`);
     }
+    useEffect(() => {
+      void ctx.ensureItemsLoaded();
+    }, [ctx.ensureItemsLoaded]);
     return ctx;
   }
 

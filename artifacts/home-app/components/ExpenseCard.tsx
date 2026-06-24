@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import Feather from "@expo/vector-icons/Feather";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React from "react";
@@ -65,7 +65,7 @@ export function ExpenseCard({ expense, onDelete }: Props) {
   const iconName = (CATEGORY_ICONS[expense.category] as any) || "circle";
   const isBoth = expense.paidBy === "Both";
   const splitLabel = getSplitLabel(expense);
-  const hasBill = Boolean(expense.billImageBase64);
+  const hasBill = Boolean(expense.hasBill || expense.billImageBase64);
   const isPending = expense.isPaid === false;
 
   const dateStr = formatDateEUShort(expense.date);

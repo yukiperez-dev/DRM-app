@@ -1,4 +1,4 @@
-import { pgTable, text, numeric, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, numeric, timestamp, index } from "drizzle-orm/pg-core";
 
 export const settlementsTable = pgTable("settlements", {
   id: text("id").primaryKey(),
@@ -10,7 +10,10 @@ export const settlementsTable = pgTable("settlements", {
   note: text("note"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (table) => [
+  index("settlements_created_at_idx").on(table.createdAt.desc(), table.id.desc()),
+  index("settlements_date_idx").on(table.date),
+]);
 
 export type InsertSettlement = typeof settlementsTable.$inferInsert;
 export type Settlement = typeof settlementsTable.$inferSelect;

@@ -1,19 +1,17 @@
-import {
-  Inter_400Regular,
-  Inter_500Medium,
-  Inter_600SemiBold,
-  Inter_700Bold,
-  useFonts,
-} from "@expo-google-fonts/inter";
+import { Inter_400Regular } from "@expo-google-fonts/inter/400Regular";
+import { Inter_500Medium } from "@expo-google-fonts/inter/500Medium";
+import { Inter_600SemiBold } from "@expo-google-fonts/inter/600SemiBold";
+import { Inter_700Bold } from "@expo-google-fonts/inter/700Bold";
+import { useFonts } from "expo-font";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { KeyboardProviderCompat } from "@/components/KeyboardProviderCompat";
 import { ExpensesProvider } from "@/context/ExpensesContext";
 import { RecurringExpensesProvider } from "@/context/RecurringExpensesContext";
 import { BudgetsProvider } from "@/context/BudgetsContext";
@@ -72,9 +70,9 @@ export default function RootLayout() {
                 <TodoProvider>
                   <GroceryProvider>
                     <GestureHandlerRootView>
-                      <KeyboardProvider>
+                      <KeyboardProviderCompat>
                         <RootLayoutNav />
-                      </KeyboardProvider>
+                      </KeyboardProviderCompat>
                     </GestureHandlerRootView>
                   </GroceryProvider>
                 </TodoProvider>

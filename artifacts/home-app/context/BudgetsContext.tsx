@@ -4,6 +4,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { Currency } from "./ExpensesContext";
@@ -23,6 +24,7 @@ interface BudgetsContextType {
   setBudget: (category: string, amount: number, currency: Currency) => Promise<void>;
   removeBudget: (category: string) => Promise<void>;
   refreshBudgets: () => Promise<void>;
+  ensureBudgetsLoaded: () => Promise<void>;
   loading: boolean;
 }
 
@@ -40,26 +42,41 @@ function rowToBudget(row: any): Budget {
 export function BudgetsProvider({ children }: { children: React.ReactNode }) {
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loaded, setLoaded] = useState(false);
+  const inFlightRef = useRef<Promise<void> | null>(null);
   const apiBase = useMemo(() => getApiBase(), []);
 
   const fetchBudgets = useCallback(async () => {
-    try {
-      const res = await fetch(`${apiBase}/budgets`, { cache: "no-store" });
-      if (!res.ok) throw new Error("Failed to fetch budgets");
-      const data = await res.json();
-      setBudgets((data as any[]).map(rowToBudget));
-    } catch (err) {
-      console.error("Failed to load budgets", err);
-    } finally {
-      setLoading(false);
+    if (inFlightRef.current) {
+      return inFlightRef.current;
     }
+
+    setLoading(true);
+    const request = (async () => {
+      try {
+        const res = await fetch(`${apiBase}/budgets`, { cache: "no-store" });
+        if (!res.ok) throw new Error("Failed to fetch budgets");
+        const data = await res.json();
+        setBudgets((data as any[]).map(rowToBudget));
+        setLoaded(true);
+      } catch (err) {
+        console.error("Failed to load budgets", err);
+      } finally {
+        setLoading(false);
+        inFlightRef.current = null;
+      }
+    })();
+
+    inFlightRef.current = request;
+    return request;
   }, [apiBase]);
 
-  useEffect(() => {
-    fetchBudgets();
-  }, [fetchBudgets]);
+  const ensureBudgetsLoaded = useCallback(async () => {
+    if (loaded) return;
+    await fetchBudgets();
+  }, [fetchBudgets, loaded]);
 
-  useRevalidateOnActive(fetchBudgets);
+  useRevalidateOnActive(fetchBudgets, { enabled: loaded });
 
   const getBudget = useCallback(
     (category: string) => budgets.find((b) => b.category === category),
@@ -75,6 +92,7 @@ export function BudgetsProvider({ children }: { children: React.ReactNode }) {
       });
       if (!res.ok) throw new Error("Failed to set budget");
       const updated = rowToBudget(await res.json());
+      setLoaded(true);
       setBudgets((prev) => {
         const idx = prev.findIndex((b) => b.category === category);
         if (idx >= 0) {
@@ -94,6 +112,7 @@ export function BudgetsProvider({ children }: { children: React.ReactNode }) {
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Failed to remove budget");
+      setLoaded(true);
       setBudgets((prev) => prev.filter((b) => b.category !== category));
     },
     [apiBase]
@@ -101,7 +120,15 @@ export function BudgetsProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <BudgetsContext.Provider
-      value={{ budgets, getBudget, setBudget, removeBudget, refreshBudgets: fetchBudgets, loading }}
+      value={{
+        budgets,
+        getBudget,
+        setBudget,
+        removeBudget,
+        refreshBudgets: fetchBudgets,
+        ensureBudgetsLoaded,
+        loading,
+      }}
     >
       {children}
     </BudgetsContext.Provider>
@@ -111,5 +138,8 @@ export function BudgetsProvider({ children }: { children: React.ReactNode }) {
 export function useBudgets() {
   const ctx = useContext(BudgetsContext);
   if (!ctx) throw new Error("useBudgets must be used within BudgetsProvider");
+  useEffect(() => {
+    void ctx.ensureBudgetsLoaded();
+  }, [ctx.ensureBudgetsLoaded]);
   return ctx;
 }

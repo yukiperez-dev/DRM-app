@@ -1,4 +1,4 @@
-import { pgTable, text, numeric, boolean, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, numeric, boolean, timestamp, integer, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -20,7 +20,13 @@ export const expensesTable = pgTable("expenses", {
   recurringExpenseId: text("recurring_expense_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (table) => [
+  index("expenses_created_at_id_idx").on(table.createdAt.desc(), table.id.desc()),
+  index("expenses_category_created_at_idx").on(table.category, table.createdAt.desc(), table.id.desc()),
+  index("expenses_is_paid_created_at_idx").on(table.isPaid, table.createdAt.desc(), table.id.desc()),
+  index("expenses_date_idx").on(table.date),
+  index("expenses_recurring_month_idx").on(table.recurringExpenseId, table.date),
+]);
 
 export const insertExpenseSchema = createInsertSchema(expensesTable).omit({
   createdAt: true,

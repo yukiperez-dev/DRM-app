@@ -4,6 +4,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { Currency, PaidBy, SplitType, type Expense } from "./ExpensesContext";
@@ -33,6 +34,7 @@ interface RecurringExpensesContextType {
   deleteRecurring: (id: string) => Promise<void>;
   generateForMonth: (year: number, month: number) => Promise<{ generated: Expense[]; skipped: string[] }>;
   refreshRecurringExpenses: () => Promise<void>;
+  ensureRecurringExpensesLoaded: () => Promise<void>;
   loading: boolean;
 }
 
@@ -61,27 +63,42 @@ function rowToRecurring(row: any): RecurringExpense {
 export function RecurringExpensesProvider({ children }: { children: React.ReactNode }) {
   const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loaded, setLoaded] = useState(false);
+  const inFlightRef = useRef<Promise<void> | null>(null);
 
   const apiBase = useMemo(() => getApiBase(), []);
 
   const fetchRecurring = useCallback(async () => {
-    try {
-      const res = await fetch(`${apiBase}/recurring-expenses`, { cache: "no-store" });
-      if (!res.ok) throw new Error("Failed to fetch");
-      const data = await res.json();
-      setRecurringExpenses((data as any[]).map(rowToRecurring));
-    } catch (err) {
-      console.error("Failed to load recurring expenses", err);
-    } finally {
-      setLoading(false);
+    if (inFlightRef.current) {
+      return inFlightRef.current;
     }
+
+    setLoading(true);
+    const request = (async () => {
+      try {
+        const res = await fetch(`${apiBase}/recurring-expenses`, { cache: "no-store" });
+        if (!res.ok) throw new Error("Failed to fetch");
+        const data = await res.json();
+        setRecurringExpenses((data as any[]).map(rowToRecurring));
+        setLoaded(true);
+      } catch (err) {
+        console.error("Failed to load recurring expenses", err);
+      } finally {
+        setLoading(false);
+        inFlightRef.current = null;
+      }
+    })();
+
+    inFlightRef.current = request;
+    return request;
   }, [apiBase]);
 
-  useEffect(() => {
-    fetchRecurring();
-  }, [fetchRecurring]);
+  const ensureRecurringExpensesLoaded = useCallback(async () => {
+    if (loaded) return;
+    await fetchRecurring();
+  }, [fetchRecurring, loaded]);
 
-  useRevalidateOnActive(fetchRecurring);
+  useRevalidateOnActive(fetchRecurring, { enabled: loaded });
 
   const addRecurring = useCallback(
     async (data: Omit<RecurringExpense, "id">) => {
@@ -92,6 +109,7 @@ export function RecurringExpensesProvider({ children }: { children: React.ReactN
       });
       if (!res.ok) throw new Error("Failed to create");
       const created = rowToRecurring(await res.json());
+      setLoaded(true);
       setRecurringExpenses((prev) => [...prev, created]);
     },
     [apiBase]
@@ -106,6 +124,7 @@ export function RecurringExpensesProvider({ children }: { children: React.ReactN
       });
       if (!res.ok) throw new Error("Failed to update");
       const updated = rowToRecurring(await res.json());
+      setLoaded(true);
       setRecurringExpenses((prev) => prev.map((r) => (r.id === id ? updated : r)));
     },
     [apiBase]
@@ -117,6 +136,7 @@ export function RecurringExpensesProvider({ children }: { children: React.ReactN
         method: "DELETE",
       });
       if (!res.ok) throw new Error("Failed to delete");
+      setLoaded(true);
       setRecurringExpenses((prev) => prev.filter((r) => r.id !== id));
     },
     [apiBase]
@@ -144,6 +164,7 @@ export function RecurringExpensesProvider({ children }: { children: React.ReactN
         deleteRecurring,
         generateForMonth,
         refreshRecurringExpenses: fetchRecurring,
+        ensureRecurringExpensesLoaded,
         loading,
       }}
     >
@@ -155,5 +176,8 @@ export function RecurringExpensesProvider({ children }: { children: React.ReactN
 export function useRecurringExpenses() {
   const ctx = useContext(RecurringExpensesContext);
   if (!ctx) throw new Error("useRecurringExpenses must be used within RecurringExpensesProvider");
+  useEffect(() => {
+    void ctx.ensureRecurringExpensesLoaded();
+  }, [ctx.ensureRecurringExpensesLoaded]);
   return ctx;
 }

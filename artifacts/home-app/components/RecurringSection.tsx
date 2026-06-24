@@ -1,7 +1,7 @@
-import { Feather } from "@expo/vector-icons";
+import Feather from "@expo/vector-icons/Feather";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -36,8 +36,18 @@ const CATEGORY_ICONS: Record<string, string> = {
 
 export function RecurringSection({ bottomPadding }: { bottomPadding: number }) {
   const colors = useColors();
-  const { recurringExpenses, deleteRecurring, generateForMonth, loading } = useRecurringExpenses();
+  const {
+    recurringExpenses,
+    deleteRecurring,
+    generateForMonth,
+    ensureRecurringExpensesLoaded,
+    loading,
+  } = useRecurringExpenses();
   const [generating, setGenerating] = useState(false);
+
+  useEffect(() => {
+    void ensureRecurringExpensesLoaded();
+  }, [ensureRecurringExpensesLoaded]);
 
   const now = new Date();
   const currentYear = now.getFullYear();

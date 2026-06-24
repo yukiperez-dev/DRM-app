@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Platform, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -14,6 +14,10 @@ export default function GroceryScreen() {
 
   const topPadding = isWeb ? Math.max(insets.top, 12) : insets.top;
   const bottomPadding = isWeb ? 100 : insets.bottom + 100;
+
+  useEffect(() => {
+    void ctx.ensureItemsLoaded();
+  }, [ctx.ensureItemsLoaded]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

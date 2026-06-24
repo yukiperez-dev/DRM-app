@@ -6,6 +6,7 @@ import budgetsRouter from "./budgets";
 import checklistRouter from "./checklist";
 import receiptAiRouter from "./receipt-ai";
 import settlementsRouter from "./settlements";
+import analyticsRouter from "./analytics";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use(recurringExpensesRouter);
 router.use(budgetsRouter);
 router.use(checklistRouter);
 router.use(settlementsRouter);
+router.use(analyticsRouter);
 
 export default router;

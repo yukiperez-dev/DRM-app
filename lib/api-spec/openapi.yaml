@@ -10,6 +10,10 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: expenses
+    description: Expense operations
+  - name: analytics
+    description: Aggregate analytics operations
 paths:
   /healthz:
     get:
@@ -24,8 +28,105 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /expenses:
+    get:
+      operationId: listExpenses
+      tags: [expenses]
+      summary: List expenses
+      description: >
+        Returns expenses in descending createdAt/id order using cursor pagination.
+        This response is an object, not the previous raw array shape.
+      parameters:
+        - name: limit
+          in: query
+          description: Page size. Defaults to 50 and is capped at 200.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: cursor
+          in: query
+          description: Opaque cursor returned by the previous page.
+          schema:
+            type: string
+        - name: category
+          in: query
+          description: Exact category filter.
+          schema:
+            type: string
+        - name: isPaid
+          in: query
+          description: Paid-state filter.
+          schema:
+            type: boolean
+        - name: dateFrom
+          in: query
+          description: Inclusive lower bound for expense date. Accepts YYYY-MM-DD or ISO date-time.
+          schema:
+            type: string
+        - name: dateTo
+          in: query
+          description: Inclusive upper bound for expense date. Accepts YYYY-MM-DD or ISO date-time.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated expenses
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpenseListResponse"
+        "400":
+          description: Invalid query parameter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /analytics/summary:
+    get:
+      operationId: getAnalyticsSummary
+      tags: [analytics]
+      summary: Analytics summary
+      description: >
+        Returns server-side summary data for balances, paid-by totals, category totals,
+        monthly trend buckets, and settlement summaries in the requested display currency.
+        Balance is all-time; range applies to paid-by, category, monthly, and expense count aggregates.
+      parameters:
+        - name: range
+          in: query
+          schema:
+            type: string
+            enum: [3M, 6M, 12M, ALL]
+            default: 6M
+        - name: currency
+          in: query
+          schema:
+            type: string
+            enum: [COP, EUR]
+            default: COP
+      responses:
+        "200":
+          description: Analytics summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyticsSummary"
+        "400":
+          description: Invalid query parameter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
     HealthStatus:
       type: object
       properties:
@@ -33,4 +134,342 @@ components:
           type: string
       required:
         - status
-
+    Currency:
+      type: string
+      enum: [COP, EUR]
+    Person:
+      type: string
+      enum: [Juanfe, Yukita]
+    Expense:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        amount:
+          type: string
+          description: Numeric value serialized by Postgres.
+        currency:
+          $ref: "#/components/schemas/Currency"
+        category:
+          type: string
+        paidBy:
+          type: string
+          enum: [Juanfe, Yukita, Both]
+        juanfePaidAmount:
+          oneOf:
+            - type: string
+            - type: "null"
+        yukitaPaidAmount:
+          oneOf:
+            - type: string
+            - type: "null"
+        splitType:
+          type: string
+          enum: [equal, custom, full]
+        juanfeSplitPct:
+          oneOf:
+            - type: integer
+            - type: "null"
+        isPaid:
+          type: boolean
+        date:
+          type: string
+        note:
+          oneOf:
+            - type: string
+            - type: "null"
+        hasBill:
+          type: boolean
+        recurringExpenseId:
+          oneOf:
+            - type: string
+            - type: "null"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - amount
+        - currency
+        - category
+        - paidBy
+        - splitType
+        - isPaid
+        - date
+        - hasBill
+        - createdAt
+        - updatedAt
+    ExpenseListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Expense"
+        nextCursor:
+          oneOf:
+            - type: string
+            - type: "null"
+        hasMore:
+          type: boolean
+      required:
+        - items
+        - nextCursor
+        - hasMore
+    MoneyTotal:
+      type: object
+      properties:
+        total:
+          type: number
+        count:
+          type: integer
+      required:
+        - total
+        - count
+    BalanceSummary:
+      type: object
+      properties:
+        juanfeOwes:
+          type: number
+        yukitaOwes:
+          type: number
+        netOwer:
+          oneOf:
+            - $ref: "#/components/schemas/Person"
+            - type: "null"
+        netAmount:
+          type: number
+        currency:
+          $ref: "#/components/schemas/Currency"
+        hasPending:
+          type: boolean
+      required:
+        - juanfeOwes
+        - yukitaOwes
+        - netOwer
+        - netAmount
+        - currency
+        - hasPending
+    CategoryTotal:
+      type: object
+      properties:
+        category:
+          type: string
+        total:
+          type: number
+        juanfe:
+          type: number
+        yukita:
+          type: number
+        both:
+          type: number
+        currentMonth:
+          type: number
+        count:
+          type: integer
+      required:
+        - category
+        - total
+        - juanfe
+        - yukita
+        - both
+        - currentMonth
+        - count
+    MonthlyBucket:
+      type: object
+      properties:
+        month:
+          type: string
+          examples: ["2026-06"]
+        label:
+          type: string
+        shortLabel:
+          type: string
+        total:
+          type: number
+        byCategory:
+          type: object
+          additionalProperties:
+            type: number
+      required:
+        - month
+        - label
+        - shortLabel
+        - total
+        - byCategory
+    SettlementSummaryItem:
+      type: object
+      properties:
+        id:
+          type: string
+        fromPerson:
+          $ref: "#/components/schemas/Person"
+        toPerson:
+          $ref: "#/components/schemas/Person"
+        amount:
+          type: number
+        amountInCurrency:
+          type: number
+        currency:
+          $ref: "#/components/schemas/Currency"
+        date:
+          type: string
+        note:
+          oneOf:
+            - type: string
+            - type: "null"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - fromPerson
+        - toPerson
+        - amount
+        - amountInCurrency
+        - currency
+        - date
+        - createdAt
+        - updatedAt
+    AnalyticsSummary:
+      type: object
+      properties:
+        range:
+          type: string
+          enum: [3M, 6M, 12M, ALL]
+        currency:
+          $ref: "#/components/schemas/Currency"
+        generatedAt:
+          type: string
+          format: date-time
+        filters:
+          type: object
+          properties:
+            rangeStart:
+              oneOf:
+                - type: string
+                - type: "null"
+            rangeEnd:
+              oneOf:
+                - type: string
+                - type: "null"
+          required:
+            - rangeStart
+            - rangeEnd
+        counts:
+          type: object
+          properties:
+            expenses:
+              type: integer
+            paidExpenses:
+              type: integer
+            pendingExpenses:
+              type: integer
+            settlements:
+              type: integer
+          required:
+            - expenses
+            - paidExpenses
+            - pendingExpenses
+            - settlements
+        balance:
+          $ref: "#/components/schemas/BalanceSummary"
+        paidByTotals:
+          type: object
+          properties:
+            Juanfe:
+              $ref: "#/components/schemas/MoneyTotal"
+            Yukita:
+              $ref: "#/components/schemas/MoneyTotal"
+            Both:
+              $ref: "#/components/schemas/MoneyTotal"
+          required:
+            - Juanfe
+            - Yukita
+            - Both
+        categoryTotals:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryTotal"
+        monthlyBuckets:
+          type: array
+          items:
+            $ref: "#/components/schemas/MonthlyBucket"
+        insights:
+          type: object
+          properties:
+            totalsInRange:
+              type: number
+            averageMonthly:
+              type: number
+            monthsWithSpend:
+              type: integer
+            topCategory:
+              oneOf:
+                - type: object
+                  properties:
+                    category:
+                      type: string
+                    total:
+                      type: number
+                  required:
+                    - category
+                    - total
+                - type: "null"
+            lastMonthDeltaPct:
+              oneOf:
+                - type: number
+                - type: "null"
+          required:
+            - totalsInRange
+            - averageMonthly
+            - monthsWithSpend
+            - topCategory
+            - lastMonthDeltaPct
+        settlements:
+          type: object
+          properties:
+            total:
+              type: number
+            byDirection:
+              type: object
+              properties:
+                juanfeToYukita:
+                  type: number
+                yukitaToJuanfe:
+                  type: number
+              required:
+                - juanfeToYukita
+                - yukitaToJuanfe
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/SettlementSummaryItem"
+            hasMore:
+              type: boolean
+          required:
+            - total
+            - byDirection
+            - items
+            - hasMore
+      required:
+        - range
+        - currency
+        - generatedAt
+        - filters
+        - counts
+        - balance
+        - paidByTotals
+        - categoryTotals
+        - monthlyBuckets
+        - insights
+        - settlements
