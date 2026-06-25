@@ -86,8 +86,15 @@ function monthLabels(key: string): { label: string; shortLabel: string } {
   if (!parsed) return { label: key, shortLabel: key };
 
   return {
-    label: parsed.toLocaleDateString("en-GB", { month: "short", year: "2-digit" }),
-    shortLabel: parsed.toLocaleDateString("en-GB", { month: "short" }),
+    label: parsed.toLocaleDateString("en-GB", {
+      month: "short",
+      year: "2-digit",
+      timeZone: "UTC",
+    }),
+    shortLabel: parsed.toLocaleDateString("en-GB", {
+      month: "short",
+      timeZone: "UTC",
+    }),
   };
 }
 
@@ -467,6 +474,7 @@ router.get("/analytics/summary", async (req, res) => {
       },
       paidByTotals,
       categoryTotals,
+      monthBuckets: monthlyBuckets,
       monthlyBuckets,
       insights: {
         totalsInRange,
