@@ -404,7 +404,12 @@ function normalizeAnalyticsSummary(
     data?.categoryTotals ?? data?.category_totals ?? data?.categories
   );
   const monthBuckets = normalizeMonthBuckets(
-    data?.monthBuckets ?? data?.month_buckets ?? data?.months ?? data?.buckets
+    data?.monthBuckets ??
+      data?.month_buckets ??
+      data?.monthlyBuckets ??
+      data?.monthly_buckets ??
+      data?.months ??
+      data?.buckets
   );
   const rawSettlements =
     data?.settlementsSummary ?? data?.settlements_summary ?? data?.settlements ?? {};

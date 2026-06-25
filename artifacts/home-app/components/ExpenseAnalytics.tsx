@@ -140,8 +140,12 @@ function buildBuckets(
       label: labelDate.toLocaleDateString("en-GB", {
         month: "short",
         year: "2-digit",
+        timeZone: "UTC",
       }),
-      shortLabel: labelDate.toLocaleDateString("en-GB", { month: "short" }),
+      shortLabel: labelDate.toLocaleDateString("en-GB", {
+        month: "short",
+        timeZone: "UTC",
+      }),
       total: 0,
       byCategory: {},
     });
